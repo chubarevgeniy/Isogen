@@ -27,6 +27,8 @@ interface SettingsPanelProps {
   setExportHeight: (val: number) => void;
   exportThickness: number;
   setExportThickness: (val: number) => void;
+  exportQuality: number;
+  setExportQuality: (val: number) => void;
   generateAndDownloadSTL: () => void;
 }
 
@@ -35,7 +37,7 @@ export function SettingsPanel({
   frequency, setFrequency, spacing, setSpacing, noiseOffset, setNoiseOffset,
   seed, setSeed, zRange, setZRange, previewZ, isAnimating, setIsAnimating,
   exportRadius, setExportRadius, exportHeight, setExportHeight,
-  exportThickness, setExportThickness, generateAndDownloadSTL
+  exportThickness, setExportThickness, exportQuality, setExportQuality, generateAndDownloadSTL
 }: SettingsPanelProps) {
 
   return (
@@ -170,6 +172,14 @@ export function SettingsPanel({
                 <span className="font-mono text-cyan-400">{exportThickness.toFixed(1)}</span>
               </div>
               <input type="range" min="0.2" max="3" step="0.1" value={exportThickness} onChange={(e) => setExportThickness(Number(e.target.value))} className="w-full accent-cyan-500" />
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-400">Качество STL по Z (мм)</span>
+                <span className="font-mono text-cyan-400">{exportQuality.toFixed(2)}</span>
+              </div>
+              <input type="range" min="0.1" max="2.0" step="0.1" value={exportQuality} onChange={(e) => setExportQuality(Number(e.target.value))} className="w-full accent-cyan-500" />
             </div>
 
             <button
