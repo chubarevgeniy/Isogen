@@ -1,85 +1,48 @@
 export class ValueNoise3D {
-  seed: number;
   p: Uint8Array;
 
-  constructor(seed = 1) {
-    this.seed = seed;
+  constructor(seed = 123) {
     this.p = new Uint8Array(512);
-    this.init(seed);
-  }
-
-  // LCG PRNG
-  init(seed: number) {
-    let currentSeed = seed >>> 0;
-    const lcg = () => {
-      currentSeed = (currentSeed * 1664525 + 1013904223) >>> 0;
-      return (currentSeed >>> 8) / 0xffffff;
-    };
+    let s = seed;
     for (let i = 0; i < 256; i++) {
-      this.p[i] = Math.floor(lcg() * 256);
+      s = (s * 16807) % 2147483647;
+      this.p[i] = s % 256;
+    }
+    for (let i = 0; i < 256; i++) {
       this.p[i + 256] = this.p[i];
     }
   }
 
   lerp(a: number, b: number, t: number) {
-    return a + (b - a) * t;
+    return a + t * (b - a);
   }
 
-  // Smoothstep: 6t^5 - 15t^4 + 10t^3
   smooth(t: number) {
     return t * t * t * (t * (t * 6 - 15) + 10);
   }
 
   val(x: number, y: number, z: number) {
-    let xi = Math.floor(x) & 255;
-    let yi = Math.floor(y) & 255;
-    let zi = Math.floor(z) & 255;
-
-    let xf = x - Math.floor(x);
-    let yf = y - Math.floor(y);
-    let zf = z - Math.floor(z);
-
-    let u = this.smooth(xf);
-    let v = this.smooth(yf);
-    let w = this.smooth(zf);
-
-    let p = this.p;
-
-    let a = p[xi] + yi;
-    let aa = p[a] + zi;
-    let ab = p[a + 1] + zi;
-    let b = p[xi + 1] + yi;
-    let ba = p[b] + zi;
-    let bb = p[b + 1] + zi;
-
-    let res = this.lerp(
-      this.lerp(
-        this.lerp(p[aa], p[ba], u),
-        this.lerp(p[ab], p[bb], u),
-        v
-      ),
-      this.lerp(
-        this.lerp(p[aa + 1], p[ba + 1], u),
-        this.lerp(p[ab + 1], p[bb + 1], u),
-        v
-      ),
-      w
-    );
-
-    // Normalize to -1 .. 1 (p returns 0..255)
-    return (res / 255) * 2 - 1;
+    const xi = Math.floor(x) & 255, yi = Math.floor(y) & 255, zi = Math.floor(z) & 255;
+    const xf = x - Math.floor(x), yf = y - Math.floor(y), zf = z - Math.floor(z);
+    const u = this.smooth(xf), v = this.smooth(yf), w = this.smooth(zf);
+    const p = this.p;
+    const c000 = p[p[p[xi] + yi] + zi], c100 = p[p[p[xi + 1] + yi] + zi];
+    const c010 = p[p[p[xi] + yi + 1] + zi], c110 = p[p[p[xi + 1] + yi + 1] + zi];
+    const c001 = p[p[p[xi] + yi] + zi + 1], c101 = p[p[p[xi + 1] + yi] + zi + 1];
+    const c011 = p[p[p[xi] + yi + 1] + zi + 1], c111 = p[p[p[xi + 1] + yi + 1] + zi + 1];
+    const x1 = this.lerp(c000, c100, u), x2 = this.lerp(c010, c110, u);
+    const x3 = this.lerp(c001, c101, u), x4 = this.lerp(c011, c111, u);
+    const y1 = this.lerp(x1, x2, v), y2 = this.lerp(x3, x4, v);
+    return (this.lerp(y1, y2, w) / 255.0) * 2 - 1;
   }
 
-  get(x: number, y: number, z: number, octaves = 4, persistence = 0.5, lacunarity = 2) {
-    let total = 0;
-    let frequency = 1;
-    let amplitude = 1;
-    let maxValue = 0;
+  get(x: number, y: number, z: number, octaves = 3, persistence = 0.5) {
+    let total = 0, frequency = 1, amplitude = 1, maxValue = 0;
     for (let i = 0; i < octaves; i++) {
       total += this.val(x * frequency, y * frequency, z * frequency) * amplitude;
       maxValue += amplitude;
       amplitude *= persistence;
-      frequency *= lacunarity;
+      frequency *= 2;
     }
     return total / maxValue;
   }

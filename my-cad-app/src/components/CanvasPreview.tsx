@@ -1,5 +1,4 @@
 import React, { useRef, useEffect } from 'react';
-import { Play, Pause } from 'lucide-react';
 import { ValueNoise3D } from '../lib/noise';
 
 interface CanvasPreviewProps {
@@ -36,16 +35,18 @@ export function CanvasPreview({
   const dimensionsRef = useRef({ w: 0, h: 0 });
   const reqRef = useRef<number>(null);
   const isDragging = useRef(false);
-  const lastMouse = useRef({ x: 0, y: 0 });
+  const lastMousePos = useRef({ x: 0, y: 0 });
 
-  // Resize handler
   useEffect(() => {
     const handleResize = () => {
       if (canvasRef.current) {
         const parent = canvasRef.current.parentElement;
         if (parent) {
-          canvasRef.current.width = parent.clientWidth;
-          canvasRef.current.height = parent.clientHeight;
+          const dpr = window.devicePixelRatio || 1;
+          canvasRef.current.width = parent.clientWidth * dpr;
+          canvasRef.current.height = parent.clientHeight * dpr;
+          canvasRef.current.style.width = `${parent.clientWidth}px`;
+          canvasRef.current.style.height = `${parent.clientHeight}px`;
           dimensionsRef.current = { w: parent.clientWidth, h: parent.clientHeight };
         }
       }
@@ -55,53 +56,52 @@ export function CanvasPreview({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Mouse / Touch for 3D rotation
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (activeTab !== '3d') return;
     isDragging.current = true;
-    lastMouse.current = { x: e.clientX || (e as any).touches?.[0]?.clientX, y: e.clientY || (e as any).touches?.[0]?.clientY };
+    lastMousePos.current = { x: e.clientX || (e as any).touches?.[0]?.clientX, y: e.clientY || (e as any).touches?.[0]?.clientY };
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging.current || activeTab !== '3d') return;
     const x = e.clientX || (e as any).touches?.[0]?.clientX;
     const y = e.clientY || (e as any).touches?.[0]?.clientY;
-    const dx = x - lastMouse.current.x;
-    const dy = y - lastMouse.current.y;
+    const dx = x - lastMousePos.current.x;
+    const dy = y - lastMousePos.current.y;
 
     setRotY(prev => prev + dx * 0.01);
     setRotX(prev => Math.max(-Math.PI/2, Math.min(Math.PI/2, prev + dy * 0.01)));
 
-    lastMouse.current = { x, y };
+    lastMousePos.current = { x, y };
   };
 
   const onPointerUp = () => {
     isDragging.current = false;
   };
 
-  const getLineDisplacement = (noise: ValueNoise3D, t: number, lineIndex: number, currentZ: number) => {
-    const nx = t * frequency;
-    const ny = lineIndex * noiseOffset;
-    return noise.get(nx, ny, currentZ) * amplitude;
+  const getLineDisplacement = (noiseGen: ValueNoise3D, lineIdx: number, t: number, z: number) => {
+    const yNoise = lineIdx * noiseOffset;
+    const lineSpreadOffset = (lineIdx - (linesCount - 1) / 2) * spacing;
+    const n = noiseGen.get(t * frequency, yNoise, z);
+    return lineSpreadOffset + n * amplitude;
   };
 
-  // Animation Loop & Render
   useEffect(() => {
-    const noise = new ValueNoise3D(seed);
+    const noiseGen = new ValueNoise3D(seed);
 
     const render = () => {
       const { w, h } = dimensionsRef.current;
       const ctx = canvasRef.current?.getContext('2d');
       if (!ctx || w === 0 || h === 0) return;
 
-      // Update Z if animating
       if (isAnimating && activeTab === '2d') {
         setPreviewZ(prev => {
-          let next = prev + animDir * 0.02;
-          if (next > zRange[1]) {
+          let next = prev + animDir * 0.01;
+          if (next >= zRange[1]) {
             setAnimDir(-1);
             return zRange[1];
           }
-          if (next < zRange[0]) {
+          if (next <= zRange[0]) {
             setAnimDir(1);
             return zRange[0];
           }
@@ -109,143 +109,158 @@ export function CanvasPreview({
         });
       }
 
-      ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = '#020617';
-      ctx.fillRect(0, 0, w, h);
+      const dpr = window.devicePixelRatio || 1;
 
-      ctx.save();
-      const radius = Math.min(w, h) * 0.45;
-      ctx.beginPath();
-      ctx.arc(w / 2, h / 2, radius, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.globalCompositeOperation = 'screen';
+      // Reset transform before clearing
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#020617';
+      ctx.fillRect(0, 0, w * dpr, h * dpr);
+
+      // Apply DPR scale for drawing
+      ctx.scale(dpr, dpr);
+
+      const cx = w / 2;
+      const cy = h / 2;
 
       if (activeTab === '2d') {
-        const lineSpreadOffset = (linesCount * spacing) / 2;
-        ctx.lineWidth = 1;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        const radius = Math.min(w, h) * 0.45;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.clip();
+
+        const steps = 150;
+        const diagLength = Math.sqrt(w * w + h * h);
+        const normalX = h / diagLength;
+        const normalY = w / diagLength;
+
+        ctx.globalCompositeOperation = 'screen';
 
         for (let i = 0; i < linesCount; i++) {
           ctx.beginPath();
-          ctx.strokeStyle = `hsla(${200 + i * 2}, 80%, 60%, 0.6)`;
+          const hue = 180 + (i / linesCount) * 80;
+          ctx.strokeStyle = `hsla(${hue}, 80%, 60%, 0.7)`;
+          ctx.lineWidth = 2;
 
-          let yOffset = i * spacing - lineSpreadOffset;
+          for (let j = 0; j <= steps; j++) {
+            const t = j / steps;
+            const baseX = w * t;
+            const baseY = h * (1 - t);
+            const displacement = getLineDisplacement(noiseGen, i, t, previewZ);
 
-          for (let t = 0; t <= 1; t += 0.01) {
-            let base_x = (t - 0.5) * w * 1.5;
-            let base_y = (0.5 - t) * h * 1.5;
+            const px = baseX + normalX * displacement;
+            const py = baseY + normalY * displacement;
 
-            let normal_x = 0.707;
-            let normal_y = 0.707;
-
-            let displacement = getLineDisplacement(noise, t, i, previewZ);
-            let final_yOffset = yOffset + displacement;
-
-            let px = w / 2 + base_x + normal_x * final_yOffset;
-            let py = h / 2 + base_y + normal_y * final_yOffset;
-
-            if (t === 0) ctx.moveTo(px, py);
+            if (j === 0) ctx.moveTo(px, py);
             else ctx.lineTo(px, py);
           }
           ctx.stroke();
         }
+        ctx.restore();
+
+        // 2D frame
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
       } else {
         // 3D Preview
+        const visualScale = Math.min(w, h) * 0.4 / exportRadius;
+
+        const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+        const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+
         const project3D = (x: number, y: number, z: number) => {
-          // Rotate X
-          let y1 = y * Math.cos(rotX) - z * Math.sin(rotX);
-          let z1 = y * Math.sin(rotX) + z * Math.cos(rotX);
-
-          // Rotate Y
-          let x2 = x * Math.cos(rotY) + z1 * Math.sin(rotY);
-          let z2 = -x * Math.sin(rotY) + z1 * Math.cos(rotY);
-
-          // Perspective/Isometric
-          const scale = 15;
-          return {
-            x: w / 2 + x2 * scale,
-            y: h / 2 + y1 * scale
-          };
+          let y1 = y * cosX - z * sinX;
+          let z1 = y * sinX + z * cosX;
+          let x2 = x * cosY + z1 * sinY;
+          let z2 = -x * sinY + z1 * cosY;
+          const fov = 1500;
+          const scale = fov / (fov + z2);
+          return { x: cx + x2 * visualScale * scale, y: cy - y1 * visualScale * scale, z: z2 };
         };
 
-        const drawCylinderWireframe = (r: number, h_ext: number) => {
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        const drawCylinderWireframe = () => {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = 'rgba(148, 163, 184, 0.2)';
           ctx.lineWidth = 1;
-          const segments = 32;
-          for (let z of [0, h_ext]) {
+          const r = exportRadius;
+          const hw = exportHeight / 2;
+          const segs = 64;
+
+          for(let isTop of [false, true]) {
+            const yOffset = isTop ? hw : -hw;
             ctx.beginPath();
-            for (let i = 0; i <= segments; i++) {
-              let angle = (i / segments) * Math.PI * 2;
-              let px = r * Math.cos(angle);
-              let py = r * Math.sin(angle);
-              let p = project3D(px, py, z - h_ext / 2);
-              if (i === 0) ctx.moveTo(p.x, p.y);
-              else ctx.lineTo(p.x, p.y);
+            for(let i=0; i<=segs; i++) {
+              const a = (i/segs) * Math.PI * 2;
+              const p = project3D(Math.cos(a)*r, yOffset, Math.sin(a)*r);
+              if (i===0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
             }
             ctx.stroke();
           }
-        };
-
-        drawCylinderWireframe(exportRadius, exportHeight);
-        drawCylinderWireframe(exportRadius + 1, exportHeight);
-
-        // Draw sampled lines in 3D
-        ctx.lineWidth = 1.5;
-        const lineSpreadOffset = (linesCount * spacing) / 2;
-
-        let zSteps = Math.ceil(exportHeight / (exportQuality * 5));
-        for (let i = 0; i < linesCount; i += 2) { // draw every 2nd line for performance
           ctx.beginPath();
-          ctx.strokeStyle = `hsla(${280 + i * 2}, 80%, 60%, 0.8)`;
-
-          for (let zi = 0; zi <= zSteps; zi++) {
-            let zFract = zi / zSteps;
-            let realZ = exportHeight * zFract;
-            // Updated: use previewZ for straight vertical walls
-            let noiseZ = previewZ;
-
-            let yOffset = i * spacing - lineSpreadOffset;
-            let found = false;
-            let bestT = 0;
-            // Find center intersection roughly
-            for (let t = 0.4; t <= 0.6; t += 0.05) {
-                let displacement = getLineDisplacement(noise, t, i, noiseZ);
-                let final_yOffset = yOffset + displacement;
-
-                // distance from center line
-                let dist = Math.abs(final_yOffset);
-                if (dist < 100) {
-                  found = true;
-                  bestT = t;
-                  break;
-                }
-            }
-
-            if(found) {
-                let displacement = getLineDisplacement(noise, bestT, i, noiseZ);
-                let final_yOffset = yOffset + displacement;
-                let normal_x = 0.707;
-                let normal_y = 0.707;
-                let px = (bestT - 0.5) * w * 1.5 + normal_x * final_yOffset;
-                let py = (0.5 - bestT) * h * 1.5 + normal_y * final_yOffset;
-
-                // map to circle
-                let dist = Math.sqrt(px*px + py*py);
-                if(dist <= radius) {
-                   let nx = px / radius * exportRadius;
-                   let ny = py / radius * exportRadius;
-                   let p = project3D(nx, ny, realZ - exportHeight/2);
-                   if(zi === 0) ctx.moveTo(p.x, p.y);
-                   else ctx.lineTo(p.x, p.y);
-                }
-            }
+          for(let i=0; i<segs; i+=8) {
+            const a = (i/segs) * Math.PI * 2;
+            const pb = project3D(Math.cos(a)*r, -hw, Math.sin(a)*r);
+            const pt = project3D(Math.cos(a)*r, hw, Math.sin(a)*r);
+            ctx.moveTo(pb.x, pb.y); ctx.lineTo(pt.x, pt.y);
           }
           ctx.stroke();
+        };
+
+        drawCylinderWireframe();
+
+        const zSlicesPreview = 15;
+        const tStepsPreview = 40;
+
+        ctx.lineWidth = 1.5;
+        ctx.globalCompositeOperation = 'screen';
+
+        const diagLen = Math.sqrt(w*w + h*h);
+        const normX = h / diagLen;
+        const normY = w / diagLen;
+
+        for (let i = 0; i < linesCount; i++) {
+          const hue = 260 + (i / linesCount) * 60;
+          ctx.strokeStyle = `hsla(${hue}, 80%, 70%, 0.6)`;
+
+          for (let sz = 0; sz <= zSlicesPreview; sz++) {
+            const zAlpha = sz / zSlicesPreview;
+            const noiseZ = zRange[0] + zAlpha * (zRange[1] - zRange[0]);
+            const physY = -exportHeight/2 + zAlpha * exportHeight;
+
+            ctx.beginPath();
+            let hasPoints = false;
+
+            for (let jt = 0; jt <= tStepsPreview; jt++) {
+              const t = jt / tStepsPreview;
+              const disp = getLineDisplacement(noiseGen, i, t, noiseZ);
+
+              const px2d = (w*t) + normX*disp - w/2;
+              const py2d = (h*(1-t)) + normY*disp - h/2;
+
+              const scaleTo3D = (exportRadius * 2) / (Math.min(w, h) * 0.9);
+              let cx3d = px2d * scaleTo3D;
+              let cy3d = py2d * scaleTo3D;
+
+              const dist = Math.sqrt(cx3d*cx3d + cy3d*cy3d);
+              if (dist <= exportRadius) {
+                const p = project3D(cx3d, physY, cy3d);
+                if (!hasPoints) { ctx.moveTo(p.x, p.y); hasPoints = true; }
+                else ctx.lineTo(p.x, p.y);
+              } else {
+                hasPoints = false;
+              }
+            }
+            ctx.stroke();
+          }
         }
       }
 
-      ctx.restore();
       reqRef.current = requestAnimationFrame(render);
     };
 
@@ -257,7 +272,7 @@ export function CanvasPreview({
 
   return (
     <div
-      className="flex-1 relative cursor-crosshair"
+      className="flex-1 relative cursor-crosshair touch-none"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
