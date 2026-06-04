@@ -52,118 +52,59 @@ export default function App() {
     return lineSpreadOffset + n * amplitude;
   };
 
+  const [isExporting, setIsExporting] = useState(false);
+
   const generateAndDownloadSTL = () => {
-    // We can use a setTimeout to let the UI react (like setting an exporting state, though we omit it here for simplicity as the old app did mostly)
-    setTimeout(() => {
-      const stl = new STLBuilder();
-      const noiseGen = new ValueNoise3D(seed);
-      const { w, h } = dimensionsRef.current;
+    if (isExporting) return;
+    setIsExporting(true);
 
-      const tSteps = 400;
-      const zSlicesCount = Math.floor(exportHeight / exportQuality);
+    const worker = new Worker(new URL('./lib/exportWorker.ts', import.meta.url), { type: 'module' });
 
-      const diagLen = Math.sqrt(w*w + h*h);
-      const normX = h / diagLen;
-      const normY = w / diagLen;
-
-      // 1. WALLS (LINES)
-      for (let i = 0; i < linesCount; i++) {
-        const gridL = [], gridR = [], insideMask = [];
-
-        for (let sz = 0; sz <= zSlicesCount; sz++) {
-          const zAlpha = sz / zSlicesCount;
-          const currentZNoise = zRange[0] + zAlpha * (zRange[1] - zRange[0]);
-          const realZ = zAlpha * exportHeight;
-
-          const rowL = [], rowR = [], rowMask = [];
-
-          for (let jt = 0; jt <= tSteps; jt++) {
-            const t = jt / tSteps;
-            const px2d = (w*t) + normX * getLineDisplacement(noiseGen, i, t, currentZNoise) - w/2;
-            const py2d = (h*(1-t)) + normY * getLineDisplacement(noiseGen, i, t, currentZNoise) - h/2;
-
-            let nTx = normX, nTy = normY;
-            if (jt < tSteps) {
-              const pnx = (w*(jt+1)/tSteps) + normX * getLineDisplacement(noiseGen, i, (jt+1)/tSteps, currentZNoise) - w/2;
-              const pny = (h*(1-(jt+1)/tSteps)) + normY * getLineDisplacement(noiseGen, i, (jt+1)/tSteps, currentZNoise) - h/2;
-              const dx = pnx - px2d; const dy = pny - py2d;
-              const len = Math.sqrt(dx*dx + dy*dy) || 1;
-              nTx = -dy/len; nTy = dx/len;
-            }
-
-            const scaleTo3D = (exportRadius * 2) / (Math.min(w, h) * 0.9);
-            const cx = px2d * scaleTo3D;
-            const cy = -py2d * scaleTo3D;
-
-            const thick = exportThickness / 2;
-            rowL.push([cx - nTx * thick, cy + nTy * thick, realZ]);
-            rowR.push([cx + nTx * thick, cy - nTy * thick, realZ]);
-
-            const dist = Math.sqrt(cx*cx + cy*cy);
-            rowMask.push(dist <= exportRadius + (exportThickness/2));
-          }
-          gridL.push(rowL); gridR.push(rowR); insideMask.push(rowMask);
-        }
-
-        // Triangulate line
-        for (let sz = 0; sz < zSlicesCount; sz++) {
-          for (let jt = 0; jt < tSteps; jt++) {
-            if (!insideMask[sz][jt] && !insideMask[sz][jt+1]) continue;
-
-            const L1 = gridL[sz][jt], L2 = gridL[sz][jt+1], L3 = gridL[sz+1][jt+1], L4 = gridL[sz+1][jt];
-            const R1 = gridR[sz][jt], R2 = gridR[sz][jt+1], R3 = gridR[sz+1][jt+1], R4 = gridR[sz+1][jt];
-
-            stl.addQuad(L1, L4, L3, L2);
-            stl.addQuad(R1, R2, R3, R4);
-
-            if (sz === 0) stl.addQuad(L1, L2, R2, R1);
-            if (sz === zSlicesCount - 1) stl.addQuad(L4, R4, R3, L3);
-
-            if (jt === 0 || (!insideMask[sz][jt-1] && insideMask[sz][jt])) stl.addQuad(L1, R1, R4, L4);
-            if (jt === tSteps - 1 || (!insideMask[sz][jt+1] && insideMask[sz][jt])) stl.addQuad(L2, L3, R3, R2);
-          }
-        }
+    worker.onmessage = (e) => {
+      const { type, buffer, error } = e.data;
+      if (type === 'SUCCESS') {
+        const blob = new Blob([buffer], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `noise_ring_${exportRadius}x${exportHeight}mm.stl`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        console.error('Export error:', error);
+        alert('Failed to generate STL: ' + error);
       }
+      setIsExporting(false);
+      worker.terminate();
+    };
 
-      // 2. CYLINDER-FRAME (NO BOTTOM)
-      const cylinderSegs = 256;
-      const WALL = 2.0;
+    worker.onerror = (err) => {
+      console.error('Worker error:', err);
+      alert('Failed to generate STL due to worker error.');
+      setIsExporting(false);
+      worker.terminate();
+    };
 
-      for(let i=0; i<cylinderSegs; i++) {
-        const a1 = (i/cylinderSegs) * Math.PI * 2;
-        const a2 = ((i+1)/cylinderSegs) * Math.PI * 2;
-
-        const p1_b_in = [Math.cos(a1)*exportRadius, Math.sin(a1)*exportRadius, 0];
-        const p2_b_in = [Math.cos(a2)*exportRadius, Math.sin(a2)*exportRadius, 0];
-        const p1_t_in = [Math.cos(a1)*exportRadius, Math.sin(a1)*exportRadius, exportHeight];
-        const p2_t_in = [Math.cos(a2)*exportRadius, Math.sin(a2)*exportRadius, exportHeight];
-
-        const R_OUT = exportRadius + WALL;
-        const p1_b_out = [Math.cos(a1)*R_OUT, Math.sin(a1)*R_OUT, 0];
-        const p2_b_out = [Math.cos(a2)*R_OUT, Math.sin(a2)*R_OUT, 0];
-        const p1_t_out = [Math.cos(a1)*R_OUT, Math.sin(a1)*R_OUT, exportHeight];
-        const p2_t_out = [Math.cos(a2)*R_OUT, Math.sin(a2)*R_OUT, exportHeight];
-
-        stl.addQuad(p1_b_in, p2_b_in, p2_t_in, p1_t_in);
-        stl.addQuad(p1_b_out, p1_t_out, p2_t_out, p2_b_out);
-        stl.addQuad(p1_t_in, p2_t_in, p2_t_out, p1_t_out);
-        stl.addQuad(p1_b_in, p1_b_out, p2_b_out, p2_b_in);
-      }
-
-      const blob = stl.build();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `noise_ring_${exportRadius}x${exportHeight}mm.stl`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 100);
+    worker.postMessage({
+      linesCount, amplitude, frequency, spacing, noiseOffset, seed, zRange,
+      exportRadius, exportHeight, exportThickness, exportQuality,
+      dimensions: dimensionsRef.current
+    });
   };
 
   return (
     <div className="flex flex-col md:flex-row h-[100dvh] w-full overflow-hidden bg-slate-950 text-slate-200">
+      {isExporting && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-xl font-medium text-slate-200">Generating Solid 3D Model...</p>
+            <p className="text-slate-400 mt-2">This may take a minute or two.</p>
+          </div>
+        </div>
+      )}
       <CanvasPreview
         activeTab={activeTab}
         linesCount={linesCount}
