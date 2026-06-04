@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { ValueNoise3D } from '../lib/noise';
+import { ValueNoise3D, CellularNoise3D } from '../lib/noise';
 import { STLViewer } from './STLViewer';
 import { Box } from 'lucide-react';
 
@@ -8,6 +8,10 @@ interface CanvasPreviewProps {
   isStlOutdated: boolean;
   isExporting: boolean;
   generateSTL: () => void;
+  noiseType: 'value' | 'cellular';
+  cellularJitter: number;
+  outerShape: 'circle' | 'square';
+  lineAngle: number;
   linesCount: number;
   amplitude: number;
   frequency: number;
@@ -33,6 +37,7 @@ interface CanvasPreviewProps {
 
 export function CanvasPreview({
   previewMode, isStlOutdated, isExporting, generateSTL,
+  noiseType, cellularJitter, outerShape, lineAngle,
   linesCount, amplitude, frequency, spacing, noiseOffset, seed,
   previewZ, isAnimating, setIsAnimating, animDir, setAnimDir, setPreviewZ, zRange,
   rotX, rotY, setRotX, setRotY, exportRadius, exportHeight, exportQuality, stlUrl
@@ -86,7 +91,7 @@ export function CanvasPreview({
     isDragging.current = false;
   };
 
-  const getLineDisplacement = (noiseGen: ValueNoise3D, lineIdx: number, t: number, z: number) => {
+  const getLineDisplacement = (noiseGen: ValueNoise3D | CellularNoise3D, lineIdx: number, t: number, z: number) => {
     const yNoise = lineIdx * noiseOffset;
     const lineSpreadOffset = (lineIdx - (linesCount - 1) / 2) * spacing;
     const n = noiseGen.get(t * frequency, yNoise, z);
@@ -96,7 +101,7 @@ export function CanvasPreview({
   useEffect(() => {
     if (previewMode === 'stl') return;
 
-    const noiseGen = new ValueNoise3D(seed);
+    const noiseGen = noiseType === 'cellular' ? new CellularNoise3D(seed, cellularJitter) : new ValueNoise3D(seed);
 
     const render = () => {
       const { w, h } = dimensionsRef.current;
@@ -142,14 +147,25 @@ export function CanvasPreview({
 
         ctx.save();
         ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        if (outerShape === 'square') {
+          ctx.rect(cx - radius, cy - radius, radius * 2, radius * 2);
+        } else {
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        }
         ctx.clip();
 
 
         const steps = 150;
+        const angleRad = (lineAngle * Math.PI) / 180;
+        const dirX = Math.cos(angleRad);
+        const dirY = Math.sin(angleRad);
+
+        // normal is perpendicular to direction
+        const normalX = -dirY;
+        const normalY = dirX;
+
+        // Ensure lines cover the diagonal size of the area
         const logicalDiag = Math.sqrt(logicalW * logicalW + logicalH * logicalH);
-        const normalX = logicalH / logicalDiag;
-        const normalY = logicalW / logicalDiag;
 
         ctx.globalCompositeOperation = 'screen';
 
@@ -161,8 +177,14 @@ export function CanvasPreview({
 
           for (let j = 0; j <= steps; j++) {
             const t = j / steps;
-            const logicalPx = logicalW * t + normalX * getLineDisplacement(noiseGen, i, t, previewZ);
-            const logicalPy = logicalH * (1 - t) + normalY * getLineDisplacement(noiseGen, i, t, previewZ);
+
+            // t runs from 0 to 1, map it to cover the diagonal from -L/2 to +L/2
+            const distanceAlongLine = (t - 0.5) * logicalDiag;
+
+            const displacement = getLineDisplacement(noiseGen, i, t, previewZ);
+
+            const logicalPx = logicalW / 2 + dirX * distanceAlongLine + normalX * displacement;
+            const logicalPy = logicalH / 2 + dirY * distanceAlongLine + normalY * displacement;
 
             const px = cx + (logicalPx - logicalW / 2) * scale;
             const py = cy + (logicalPy - logicalH / 2) * scale;
@@ -176,7 +198,11 @@ export function CanvasPreview({
 
         // 2D frame
         ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        if (outerShape === 'square') {
+          ctx.rect(cx - radius, cy - radius, radius * 2, radius * 2);
+        } else {
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        }
         ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
         ctx.lineWidth = 2;
         ctx.stroke();
@@ -226,7 +252,38 @@ export function CanvasPreview({
           ctx.stroke();
         };
 
-        drawCylinderWireframe();
+        const drawCubeWireframe = () => {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = 'rgba(148, 163, 184, 0.2)';
+          ctx.lineWidth = 1;
+          const r = exportRadius;
+          const hw = exportHeight / 2;
+
+          const corners = [
+            [-r, -hw, -r], [r, -hw, -r], [r, -hw, r], [-r, -hw, r],
+            [-r, hw, -r],  [r, hw, -r],  [r, hw, r],  [-r, hw, r]
+          ].map(c => project3D(c[0], c[1], c[2]));
+
+          ctx.beginPath();
+          // Bottom rect
+          ctx.moveTo(corners[0].x, corners[0].y); ctx.lineTo(corners[1].x, corners[1].y);
+          ctx.lineTo(corners[2].x, corners[2].y); ctx.lineTo(corners[3].x, corners[3].y); ctx.lineTo(corners[0].x, corners[0].y);
+          // Top rect
+          ctx.moveTo(corners[4].x, corners[4].y); ctx.lineTo(corners[5].x, corners[5].y);
+          ctx.lineTo(corners[6].x, corners[6].y); ctx.lineTo(corners[7].x, corners[7].y); ctx.lineTo(corners[4].x, corners[4].y);
+          // Pillars
+          ctx.moveTo(corners[0].x, corners[0].y); ctx.lineTo(corners[4].x, corners[4].y);
+          ctx.moveTo(corners[1].x, corners[1].y); ctx.lineTo(corners[5].x, corners[5].y);
+          ctx.moveTo(corners[2].x, corners[2].y); ctx.lineTo(corners[6].x, corners[6].y);
+          ctx.moveTo(corners[3].x, corners[3].y); ctx.lineTo(corners[7].x, corners[7].y);
+          ctx.stroke();
+        };
+
+        if (outerShape === 'square') {
+          drawCubeWireframe();
+        } else {
+          drawCylinderWireframe();
+        }
 
         const zSlicesPreview = 15;
         const tStepsPreview = 40;
@@ -234,9 +291,15 @@ export function CanvasPreview({
         ctx.lineWidth = 1.5;
         ctx.globalCompositeOperation = 'screen';
 
+        const angleRad = (lineAngle * Math.PI) / 180;
+        const dirX = Math.cos(angleRad);
+        const dirY = Math.sin(angleRad);
+
+        // normal is perpendicular to direction
+        const normX = -dirY;
+        const normY = dirX;
+
         const diagLen = Math.sqrt(logicalW*logicalW + logicalH*logicalH);
-        const normX = logicalH / diagLen;
-        const normY = logicalW / diagLen;
 
         for (let i = 0; i < linesCount; i++) {
           const hue = 260 + (i / linesCount) * 60;
@@ -252,16 +315,23 @@ export function CanvasPreview({
 
             for (let jt = 0; jt <= tStepsPreview; jt++) {
               const t = jt / tStepsPreview;
+              const distanceAlongLine = (t - 0.5) * diagLen;
+
               const disp = getLineDisplacement(noiseGen, i, t, noiseZ);
 
-              const px2d = (logicalW*t) + normX*disp;
-              const py2d = (logicalH*(1-t)) + normY*disp;
+              const px2d = logicalW/2 + dirX*distanceAlongLine + normX*disp;
+              const py2d = logicalH/2 + dirY*distanceAlongLine + normY*disp;
 
               let cx3d = px2d - logicalW / 2;
               let cy3d = py2d - logicalH / 2;
 
               const dist = Math.sqrt(cx3d*cx3d + cy3d*cy3d);
-              if (dist <= exportRadius) {
+
+              const isInside = outerShape === 'square'
+                ? (Math.abs(cx3d) <= exportRadius && Math.abs(cy3d) <= exportRadius)
+                : (dist <= exportRadius);
+
+              if (isInside) {
                 const p = project3D(cx3d, physY, cy3d);
                 if (!hasPoints) { ctx.moveTo(p.x, p.y); hasPoints = true; }
                 else ctx.lineTo(p.x, p.y);

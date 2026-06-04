@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings2, Download, RotateCcw, Box, Play, Pause, Layers, Cuboid } from 'lucide-react';
+import { Settings2, Download, RotateCcw, Box, Play, Pause, Layers, Cuboid, Circle, Square } from 'lucide-react';
 
 interface SettingsPanelProps {
   previewMode: 'flat' | '3d' | 'stl';
@@ -7,6 +7,14 @@ interface SettingsPanelProps {
   isStlOutdated: boolean;
   isExporting: boolean;
   generateSTL: () => void;
+  noiseType: 'value' | 'cellular';
+  setNoiseType: (val: 'value' | 'cellular') => void;
+  cellularJitter: number;
+  setCellularJitter: (val: number) => void;
+  outerShape: 'circle' | 'square';
+  setOuterShape: (val: 'circle' | 'square') => void;
+  lineAngle: number;
+  setLineAngle: (val: number) => void;
   linesCount: number;
   setLinesCount: (val: number) => void;
   amplitude: number;
@@ -42,6 +50,8 @@ interface SettingsPanelProps {
 export function SettingsPanel({
   previewMode, setPreviewMode,
   isStlOutdated, isExporting, generateSTL,
+  noiseType, setNoiseType, cellularJitter, setCellularJitter,
+  outerShape, setOuterShape, lineAngle, setLineAngle,
   linesCount, setLinesCount, amplitude, setAmplitude,
   frequency, setFrequency, spacing, setSpacing, noiseOffset, setNoiseOffset,
   seed, setSeed, zStart, setZStart, zLength, setZLength, previewZ, isAnimating, setIsAnimating,
@@ -77,13 +87,34 @@ export function SettingsPanel({
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 flex flex-col justify-between">
         <div className="space-y-6">
 
+          {/* Shape Settings */}
+          <div className="space-y-4">
+             <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-2">Форма контура</h3>
+             <div className="flex gap-2 p-1 bg-slate-900 rounded-xl border border-slate-800">
+               <button
+                 onClick={() => setOuterShape('circle')}
+                 className={`flex-1 py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-all text-xs font-medium ${outerShape === 'circle' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-300'}`}
+               >
+                 <Circle size={16} /> Круг
+               </button>
+               <button
+                 onClick={() => setOuterShape('square')}
+                 className={`flex-1 py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-all text-xs font-medium ${outerShape === 'square' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-300'}`}
+               >
+                 <Square size={16} /> Квадрат
+               </button>
+             </div>
+          </div>
+
+          <div className="h-px bg-slate-800 w-full" />
+
           {/* Dimensional Settings */}
           <div className="space-y-4">
              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-2">Размеры</h3>
 
              <div className="space-y-2">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-400">Радиус кольца (мм)</span>
+                  <span className="text-slate-400">{outerShape === 'circle' ? 'Радиус' : 'Размер стороны / 2'} (мм)</span>
                   <span className="font-mono text-cyan-400">{exportRadius}</span>
                 </div>
                 <input type="range" min="5" max="150" value={exportRadius} onChange={(e) => setExportRadius(Number(e.target.value))} className="w-full accent-cyan-500" />
@@ -103,6 +134,39 @@ export function SettingsPanel({
           {/* Noise / Pattern Settings */}
           <div className="space-y-4">
              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-2">Форма узора</h3>
+
+             <div className="flex gap-2 p-1 bg-slate-900 rounded-xl border border-slate-800 mb-4">
+               <button
+                 onClick={() => setNoiseType('value')}
+                 className={`flex-1 py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-all text-xs font-medium ${noiseType === 'value' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-300'}`}
+               >
+                 Гладкий (Value)
+               </button>
+               <button
+                 onClick={() => setNoiseType('cellular')}
+                 className={`flex-1 py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-all text-xs font-medium ${noiseType === 'cellular' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-300'}`}
+               >
+                 Ячеистый (Cellular)
+               </button>
+             </div>
+
+             {noiseType === 'cellular' && (
+               <div className="space-y-2">
+                 <div className="flex justify-between items-center text-sm">
+                   <span className="text-slate-400">Хаотичность (Jitter)</span>
+                   <span className="font-mono text-cyan-400">{cellularJitter.toFixed(2)}</span>
+                 </div>
+                 <input type="range" min="0" max="1.5" step="0.05" value={cellularJitter} onChange={(e) => setCellularJitter(Number(e.target.value))} className="w-full accent-cyan-500" />
+               </div>
+             )}
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-400">Угол линий (градусы)</span>
+                <span className="font-mono text-cyan-400">{lineAngle}°</span>
+              </div>
+              <input type="range" min="0" max="360" value={lineAngle} onChange={(e) => setLineAngle(Number(e.target.value))} className="w-full accent-cyan-500" />
+            </div>
 
             <div className="space-y-2">
               <div className="flex justify-between items-center text-sm">

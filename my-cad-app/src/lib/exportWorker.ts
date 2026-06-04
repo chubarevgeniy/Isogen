@@ -1,4 +1,4 @@
-import { ValueNoise3D } from './noise';
+import { ValueNoise3D, CellularNoise3D } from './noise';
 import { geometries, booleans, primitives } from '@jscad/modeling';
 import { serialize } from '@jscad/stl-serializer';
 
@@ -6,19 +6,25 @@ self.onmessage = (e) => {
   const {
     linesCount, amplitude, frequency, spacing, noiseOffset, seed, zRange,
     exportRadius, exportHeight, exportThickness, exportQuality,
-    dimensions
+    dimensions, noiseType, cellularJitter, outerShape, lineAngle
   } = e.data;
 
   try {
-    const noiseGen = new ValueNoise3D(seed);
+    const noiseGen = noiseType === 'cellular' ? new CellularNoise3D(seed, cellularJitter) : new ValueNoise3D(seed);
     const { w, h } = dimensions;
 
     const tSteps = 400;
     const zSlicesCount = Math.floor(exportHeight / exportQuality);
 
+    const angleRad = (lineAngle * Math.PI) / 180;
+    const dirX = Math.cos(angleRad);
+    const dirY = Math.sin(angleRad);
+
+    // normal is perpendicular to direction
+    const normX = -dirY;
+    const normY = dirX;
+
     const diagLen = Math.sqrt(w * w + h * h);
-    const normX = h / diagLen;
-    const normY = w / diagLen;
 
     const getLineDisplacement = (lineIdx: number, t: number, z: number) => {
       const yNoise = lineIdx * noiseOffset;
@@ -46,13 +52,15 @@ self.onmessage = (e) => {
 
         for (let jt = 0; jt <= tSteps; jt++) {
           const t = jt / tSteps;
-          const px2d = (w * t) + normX * getLineDisplacement(i, t, currentZNoise);
-          const py2d = (h * (1 - t)) + normY * getLineDisplacement(i, t, currentZNoise);
+          const distanceAlongLine = (t - 0.5) * diagLen;
+          const px2d = w/2 + dirX*distanceAlongLine + normX * getLineDisplacement(i, t, currentZNoise);
+          const py2d = h/2 + dirY*distanceAlongLine + normY * getLineDisplacement(i, t, currentZNoise);
 
           let nTx = normX, nTy = normY;
           if (jt < tSteps) {
-            const pnx = (w * (jt + 1) / tSteps) + normX * getLineDisplacement(i, (jt + 1) / tSteps, currentZNoise);
-            const pny = (h * (1 - (jt + 1) / tSteps)) + normY * getLineDisplacement(i, (jt + 1) / tSteps, currentZNoise);
+            const nextDistanceAlongLine = ((jt + 1) / tSteps - 0.5) * diagLen;
+            const pnx = w/2 + dirX*nextDistanceAlongLine + normX * getLineDisplacement(i, (jt + 1) / tSteps, currentZNoise);
+            const pny = h/2 + dirY*nextDistanceAlongLine + normY * getLineDisplacement(i, (jt + 1) / tSteps, currentZNoise);
             const dx = pnx - px2d; const dy = pny - py2d;
             const len = Math.sqrt(dx * dx + dy * dy) || 1;
             nTx = -dy / len; nTy = dx / len;
@@ -66,7 +74,11 @@ self.onmessage = (e) => {
           rowR.push([cx + nTx * thick, cy - nTy * thick, realZ]);
 
           const dist = Math.sqrt(cx * cx + cy * cy);
-          rowMask.push(dist <= exportRadius + (exportThickness / 2));
+          const isInside = outerShape === 'square'
+            ? (Math.abs(cx) <= exportRadius + (exportThickness / 2) && Math.abs(cy) <= exportRadius + (exportThickness / 2))
+            : (dist <= exportRadius + (exportThickness / 2));
+
+          rowMask.push(isInside);
         }
         gridL.push(rowL); gridR.push(rowR); insideMask.push(rowMask);
       }
@@ -113,14 +125,21 @@ self.onmessage = (e) => {
       }
     }
 
-    // 2. CYLINDER-FRAME (NO BOTTOM)
+    // 2. OUTER FRAME (NO BOTTOM)
     const WALL = 2.0;
     const R_OUT = exportRadius + WALL;
-    const cylinderSegs = 256;
+    let ring;
 
-    const outerCyl = primitives.cylinder({ radius: R_OUT, height: exportHeight, segments: cylinderSegs, center: [0, 0, exportHeight / 2] });
-    const innerCyl = primitives.cylinder({ radius: exportRadius, height: exportHeight, segments: cylinderSegs, center: [0, 0, exportHeight / 2] });
-    const ring = booleans.subtract(outerCyl, innerCyl);
+    if (outerShape === 'square') {
+      const outerBox = primitives.cuboid({ size: [R_OUT * 2, R_OUT * 2, exportHeight], center: [0, 0, exportHeight / 2] });
+      const innerBox = primitives.cuboid({ size: [exportRadius * 2, exportRadius * 2, exportHeight], center: [0, 0, exportHeight / 2] });
+      ring = booleans.subtract(outerBox, innerBox);
+    } else {
+      const cylinderSegs = 256;
+      const outerCyl = primitives.cylinder({ radius: R_OUT, height: exportHeight, segments: cylinderSegs, center: [0, 0, exportHeight / 2] });
+      const innerCyl = primitives.cylinder({ radius: exportRadius, height: exportHeight, segments: cylinderSegs, center: [0, 0, exportHeight / 2] });
+      ring = booleans.subtract(outerCyl, innerCyl);
+    }
     allGeometries.push(ring);
 
     // 3. SERIALIZE DIRECTLY (avoid OOM from union)
