@@ -25,6 +25,7 @@ interface CanvasPreviewProps {
   setAnimDir: (dir: number) => void;
   setPreviewZ: React.Dispatch<React.SetStateAction<number>>;
   zRange: [number, number];
+  zMultiplier: number;
   rotX: number;
   rotY: number;
   setRotX: React.Dispatch<React.SetStateAction<number>>;
@@ -39,7 +40,7 @@ export function CanvasPreview({
   previewMode, isStlOutdated, isExporting, generateSTL,
   noiseType, cellularJitter, outerShape, lineAngle,
   linesCount, amplitude, frequency, spacing, noiseOffset, seed,
-  previewZ, isAnimating, setIsAnimating, animDir, setAnimDir, setPreviewZ, zRange,
+  previewZ, isAnimating, setIsAnimating, animDir, setAnimDir, setPreviewZ, zRange, zMultiplier,
   rotX, rotY, setRotX, setRotY, exportRadius, exportHeight, exportQuality, stlUrl
 }: CanvasPreviewProps) {
 
@@ -94,8 +95,9 @@ export function CanvasPreview({
   const getLineDisplacement = (noiseGen: ValueNoise3D | CellularNoise3D, lineIdx: number, t: number, z: number) => {
     const yNoise = lineIdx * noiseOffset;
     const lineSpreadOffset = (lineIdx - (linesCount - 1) / 2) * spacing;
-    const n = noiseGen.get(t * frequency, yNoise, z);
-    return lineSpreadOffset + n * amplitude;
+    const base_n = noiseGen.get(t * frequency, yNoise, zRange[0]);
+    const current_n = noiseGen.get(t * frequency, yNoise, z);
+    return lineSpreadOffset + base_n * amplitude + (current_n - base_n) * amplitude * zMultiplier;
   };
 
   useEffect(() => {
@@ -351,7 +353,7 @@ export function CanvasPreview({
     return () => {
       if (reqRef.current !== null) cancelAnimationFrame(reqRef.current);
     };
-  }, [linesCount, amplitude, frequency, spacing, noiseOffset, seed, zRange, previewZ, isAnimating, animDir, previewMode, rotX, rotY, exportRadius, exportHeight, exportQuality]);
+  }, [linesCount, amplitude, frequency, spacing, noiseOffset, seed, zRange, zMultiplier, previewZ, isAnimating, animDir, previewMode, rotX, rotY, exportRadius, exportHeight, exportQuality]);
 
   return (
     <div

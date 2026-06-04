@@ -4,7 +4,7 @@ import { serialize } from '@jscad/stl-serializer';
 
 self.onmessage = (e) => {
   const {
-    linesCount, amplitude, frequency, spacing, noiseOffset, seed, zRange,
+    linesCount, amplitude, frequency, spacing, noiseOffset, seed, zRange, zMultiplier,
     exportRadius, exportHeight, exportThickness, exportQuality,
     dimensions, noiseType, cellularJitter, outerShape, lineAngle
   } = e.data;
@@ -29,8 +29,9 @@ self.onmessage = (e) => {
     const getLineDisplacement = (lineIdx: number, t: number, z: number) => {
       const yNoise = lineIdx * noiseOffset;
       const lineSpreadOffset = (lineIdx - (linesCount - 1) / 2) * spacing;
-      const n = noiseGen.get(t * frequency, yNoise, z);
-      return lineSpreadOffset + n * amplitude;
+      const base_n = noiseGen.get(t * frequency, yNoise, zRange[0]);
+      const current_n = noiseGen.get(t * frequency, yNoise, z);
+      return lineSpreadOffset + base_n * amplitude + (current_n - base_n) * amplitude * zMultiplier;
     };
 
     const allGeometries = [];

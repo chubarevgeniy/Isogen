@@ -31,6 +31,8 @@ interface SettingsPanelProps {
   setZStart: (val: number) => void;
   zLength: number;
   setZLength: (val: number) => void;
+  zMultiplier: number;
+  setZMultiplier: (val: number) => void;
   previewZ: number;
   isAnimating: boolean;
   setIsAnimating: (val: boolean) => void;
@@ -54,7 +56,7 @@ export function SettingsPanel({
   outerShape, setOuterShape, lineAngle, setLineAngle,
   linesCount, setLinesCount, amplitude, setAmplitude,
   frequency, setFrequency, spacing, setSpacing, noiseOffset, setNoiseOffset,
-  seed, setSeed, zStart, setZStart, zLength, setZLength, previewZ, isAnimating, setIsAnimating,
+  seed, setSeed, zStart, setZStart, zLength, setZLength, zMultiplier, setZMultiplier, previewZ, isAnimating, setIsAnimating,
   exportRadius, setExportRadius, exportHeight, setExportHeight,
   exportThickness, setExportThickness, exportQuality, setExportQuality, downloadSTL, clearSTL, stlUrl
 }: SettingsPanelProps) {
@@ -233,6 +235,14 @@ export function SettingsPanel({
                   <span className="font-mono text-cyan-400">{zLength.toFixed(2)}</span>
                 </div>
                 <input type="range" min="0.01" max="0.5" step="0.01" value={zLength} onChange={(e) => setZLength(Number(e.target.value))} className="w-full accent-cyan-500" />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400">Сила смещения (Z)</span>
+                  <span className="font-mono text-cyan-400">{zMultiplier.toFixed(1)}</span>
+                </div>
+                <input type="range" min="0" max="5" step="0.1" value={zMultiplier} onChange={(e) => setZMultiplier(Number(e.target.value))} className="w-full accent-cyan-500" />
               </div>
             </div>
 
