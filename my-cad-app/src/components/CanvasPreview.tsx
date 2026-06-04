@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { ValueNoise3D } from '../lib/noise';
+import { STLViewer } from './STLViewer';
 
 interface CanvasPreviewProps {
   activeTab: string;
@@ -23,12 +24,13 @@ interface CanvasPreviewProps {
   exportRadius: number;
   exportHeight: number;
   exportQuality: number;
+  stlUrl: string | null;
 }
 
 export function CanvasPreview({
   activeTab, linesCount, amplitude, frequency, spacing, noiseOffset, seed,
   previewZ, isAnimating, setIsAnimating, animDir, setAnimDir, setPreviewZ, zRange,
-  rotX, rotY, setRotX, setRotY, exportRadius, exportHeight, exportQuality
+  rotX, rotY, setRotX, setRotY, exportRadius, exportHeight, exportQuality, stlUrl
 }: CanvasPreviewProps) {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -278,6 +280,11 @@ export function CanvasPreview({
       onPointerUp={onPointerUp}
       onPointerLeave={onPointerUp}
     >
+      {stlUrl ? (
+        <div className="absolute inset-0 z-10 bg-slate-950">
+          <STLViewer url={stlUrl} />
+        </div>
+      ) : null}
       <canvas ref={canvasRef} className="block w-full h-full" />
     </div>
   );

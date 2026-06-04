@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings2, Download, Play, Pause } from 'lucide-react';
+import { Settings2, Play, Pause, Download, RotateCcw, Box } from 'lucide-react';
 
 interface SettingsPanelProps {
   activeTab: string;
@@ -29,7 +29,10 @@ interface SettingsPanelProps {
   setExportThickness: (val: number) => void;
   exportQuality: number;
   setExportQuality: (val: number) => void;
-  generateAndDownloadSTL: () => void;
+  generateSTL: () => void;
+  downloadSTL: () => void;
+  clearSTL: () => void;
+  stlUrl: string | null;
 }
 
 export function SettingsPanel({
@@ -37,7 +40,7 @@ export function SettingsPanel({
   frequency, setFrequency, spacing, setSpacing, noiseOffset, setNoiseOffset,
   seed, setSeed, zRange, setZRange, previewZ, isAnimating, setIsAnimating,
   exportRadius, setExportRadius, exportHeight, setExportHeight,
-  exportThickness, setExportThickness, exportQuality, setExportQuality, generateAndDownloadSTL
+  exportThickness, setExportThickness, exportQuality, setExportQuality, generateSTL, downloadSTL, clearSTL, stlUrl
 }: SettingsPanelProps) {
 
   return (
@@ -46,13 +49,13 @@ export function SettingsPanel({
       <div className="flex border-b border-slate-800 p-2 gap-2 shrink-0">
         <button
           onClick={() => setActiveTab('2d')}
-          className={`flex-1 py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-all font-medium ${activeTab === '2d' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800/50'}`}
+          className={`flex-1 py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-all font-medium ${activeTab === '2d' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800'}`}
         >
           <Settings2 size={18} /> Настройки 2D
         </button>
         <button
           onClick={() => setActiveTab('3d')}
-          className={`flex-1 py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-all font-medium ${activeTab === '3d' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800/50'}`}
+          className={`flex-1 py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-all font-medium ${activeTab === '3d' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800'}`}
         >
           <Download size={18} /> Экспорт в 3D
         </button>
@@ -63,7 +66,7 @@ export function SettingsPanel({
         <div>
         {activeTab === '2d' ? (
           <>
-            <div className="p-4 bg-slate-800/50 rounded-xl mb-6">
+            <div className="p-4 bg-slate-800 rounded-xl mb-6">
                <div className="flex justify-between items-center mb-2">
                  <div>
                    <div className="text-cyan-400 font-medium">Диапазон шума (Z)</div>
@@ -146,48 +149,70 @@ export function SettingsPanel({
           </>
         ) : (
           <>
-            <div className="p-4 bg-slate-800/50 rounded-xl mb-4 text-sm text-slate-300">
-              Перетащите область холста для вращения 3D-просмотра.
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-400">Радиус кольца (мм)</span>
-                <span className="font-mono text-cyan-400">{exportRadius}</span>
+          {stlUrl ? (
+            <div className="flex flex-col gap-4 mt-4">
+              <div className="p-4 bg-cyan-900/30 border border-cyan-800 rounded-xl mb-4 text-sm text-cyan-200">
+                Модель успешно сгенерирована! Вращайте предпросмотр, чтобы рассмотреть её со всех сторон.
               </div>
-              <input type="range" min="5" max="30" value={exportRadius} onChange={(e) => setExportRadius(Number(e.target.value))} className="w-full accent-cyan-500" />
+              <button
+                onClick={downloadSTL}
+                className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl font-medium transition-all flex justify-center items-center gap-2 shadow-lg shadow-cyan-900/50"
+              >
+                <Download size={20} /> Сохранить STL файл
+              </button>
+              <button
+                onClick={clearSTL}
+                className="w-full py-3 mt-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 rounded-xl font-medium transition-all flex justify-center items-center gap-2"
+              >
+                <RotateCcw size={18} /> Вернуться к редактированию
+              </button>
             </div>
-
-            <div className="space-y-4">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-400">Высота кольца (мм)</span>
-                <span className="font-mono text-cyan-400">{exportHeight}</span>
+          ) : (
+            <>
+              <div className="p-4 bg-slate-800 rounded-xl mb-4 text-sm text-slate-300">
+                Перетащите область холста для вращения 3D-просмотра.
               </div>
-              <input type="range" min="2" max="20" value={exportHeight} onChange={(e) => setExportHeight(Number(e.target.value))} className="w-full accent-cyan-500" />
-            </div>
 
-            <div className="space-y-4">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-400">Толщина линии (мм)</span>
-                <span className="font-mono text-cyan-400">{exportThickness.toFixed(1)}</span>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400">Радиус кольца (мм)</span>
+                  <span className="font-mono text-cyan-400">{exportRadius}</span>
+                </div>
+                <input type="range" min="5" max="30" value={exportRadius} onChange={(e) => setExportRadius(Number(e.target.value))} className="w-full accent-cyan-500" />
               </div>
-              <input type="range" min="0.2" max="3" step="0.1" value={exportThickness} onChange={(e) => setExportThickness(Number(e.target.value))} className="w-full accent-cyan-500" />
-            </div>
 
-            <div className="space-y-4">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-400">Качество STL по Z (мм)</span>
-                <span className="font-mono text-cyan-400">{exportQuality.toFixed(2)}</span>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400">Высота кольца (мм)</span>
+                  <span className="font-mono text-cyan-400">{exportHeight}</span>
+                </div>
+                <input type="range" min="2" max="20" value={exportHeight} onChange={(e) => setExportHeight(Number(e.target.value))} className="w-full accent-cyan-500" />
               </div>
-              <input type="range" min="0.1" max="2.0" step="0.1" value={exportQuality} onChange={(e) => setExportQuality(Number(e.target.value))} className="w-full accent-cyan-500" />
-            </div>
 
-            <button
-              onClick={generateAndDownloadSTL}
-              className="w-full py-4 mt-6 bg-slate-700 hover:bg-slate-600 active:scale-95 text-white rounded-xl font-medium transition-all flex justify-center items-center gap-2"
-            >
-              <Download size={20} /> Скачать STL
-            </button>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400">Толщина линии (мм)</span>
+                  <span className="font-mono text-cyan-400">{exportThickness.toFixed(1)}</span>
+                </div>
+                <input type="range" min="0.2" max="3" step="0.1" value={exportThickness} onChange={(e) => setExportThickness(Number(e.target.value))} className="w-full accent-cyan-500" />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400">Качество STL по Z (мм)</span>
+                  <span className="font-mono text-cyan-400">{exportQuality.toFixed(2)}</span>
+                </div>
+                <input type="range" min="0.1" max="2.0" step="0.1" value={exportQuality} onChange={(e) => setExportQuality(Number(e.target.value))} className="w-full accent-cyan-500" />
+              </div>
+
+              <button
+                onClick={generateSTL}
+                className="w-full py-4 mt-6 bg-slate-700 hover:bg-slate-600 active:scale-95 text-white rounded-xl font-medium transition-all flex justify-center items-center gap-2"
+              >
+                <Box size={20} /> Сгенерировать 3D файл
+              </button>
+            </>
+          )}
           </>
         )}
         </div>
@@ -196,7 +221,8 @@ export function SettingsPanel({
         <div className="pt-4 mt-4">
           <button
             onClick={() => setSeed(Math.floor(Math.random() * 1000) + 1)}
-            className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 rounded-xl font-medium transition-all flex justify-center items-center gap-2"
+            disabled={stlUrl !== null}
+            className={`w-full ${stlUrl !== null ? "opacity-50 cursor-not-allowed " : ""} py-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 rounded-xl font-medium transition-all flex justify-center items-center gap-2`}
           >
             <Settings2 size={18} /> Новая форма (Seed)
           </button>
