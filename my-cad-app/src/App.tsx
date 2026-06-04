@@ -19,7 +19,8 @@ export default function App() {
      return () => window.removeEventListener('resize', updateDim);
   }, []);
 
-  const [activeTab, setActiveTab] = useState('2d');
+  const [previewMode, setPreviewMode] = useState<'flat' | '3d' | 'stl'>('flat');
+  const [isStlOutdated, setIsStlOutdated] = useState(true);
 
   // Params matching the old logic
   const [linesCount, setLinesCount] = useState(40);
@@ -32,6 +33,9 @@ export default function App() {
   const [zLength, setZLength] = useState(0.2);
 
   const zRange: [number, number] = [zStart, zStart + zLength];
+
+
+
 
   // Animation
   const [previewZ, setPreviewZ] = useState(0);
@@ -60,6 +64,11 @@ export default function App() {
   const [stlUrl, setStlUrl] = useState<string | null>(null);
   const [stlFilename, setStlFilename] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    setIsStlOutdated(true);
+  }, [linesCount, amplitude, frequency, spacing, noiseOffset, seed, zStart, zLength, exportRadius, exportHeight, exportThickness, exportQuality]);
+
+
 
 
   const generateSTL = () => {
@@ -75,6 +84,8 @@ export default function App() {
         const url = URL.createObjectURL(blob);
         setStlUrl(url);
         setStlFilename(`noise_ring_${exportRadius}x${exportHeight}mm.stl`);
+        setIsStlOutdated(false);
+        setPreviewMode('stl');
       } else {
         console.error('Export error:', error);
         alert('Failed to generate STL: ' + error);
@@ -116,17 +127,12 @@ export default function App() {
   };
 return (
     <div className="flex flex-col md:flex-row h-[100dvh] w-full overflow-hidden bg-slate-950 text-slate-200">
-      {isExporting && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-xl font-medium text-slate-200">Generating Solid 3D Model...</p>
-            <p className="text-slate-400 mt-2">This may take a minute or two.</p>
-          </div>
-        </div>
-      )}
+
       <CanvasPreview
-        activeTab={activeTab}
+        previewMode={previewMode}
+        isStlOutdated={isStlOutdated}
+        isExporting={isExporting}
+        generateSTL={generateSTL}
         linesCount={linesCount}
         amplitude={amplitude}
         frequency={frequency}
@@ -150,8 +156,11 @@ return (
         stlUrl={stlUrl}
       />
       <SettingsPanel
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        previewMode={previewMode}
+        setPreviewMode={setPreviewMode}
+        isStlOutdated={isStlOutdated}
+        isExporting={isExporting}
+        generateSTL={generateSTL}
         linesCount={linesCount}
         setLinesCount={setLinesCount}
         amplitude={amplitude}
@@ -179,7 +188,6 @@ return (
         setExportThickness={setExportThickness}
         exportQuality={exportQuality}
         setExportQuality={setExportQuality}
-        generateSTL={generateSTL}
         downloadSTL={downloadSTL}
         clearSTL={clearSTL}
         stlUrl={stlUrl}
