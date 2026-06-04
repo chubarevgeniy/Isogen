@@ -54,7 +54,12 @@ export default function App() {
 
   const [isExporting, setIsExporting] = useState(false);
 
-  const generateAndDownloadSTL = () => {
+  const [stlUrl, setStlUrl] = useState<string | null>(null);
+  const [stlFilename, setStlFilename] = useState<string | null>(null);
+
+
+
+  const generateSTL = () => {
     if (isExporting) return;
     setIsExporting(true);
 
@@ -65,13 +70,8 @@ export default function App() {
       if (type === 'SUCCESS') {
         const blob = new Blob([buffer], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `noise_ring_${exportRadius}x${exportHeight}mm.stl`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        setStlUrl(url);
+        setStlFilename(`noise_ring_${exportRadius}x${exportHeight}mm.stl`);
       } else {
         console.error('Export error:', error);
         alert('Failed to generate STL: ' + error);
@@ -94,7 +94,24 @@ export default function App() {
     });
   };
 
-  return (
+  const downloadSTL = () => {
+    if (!stlUrl || !stlFilename) return;
+    const a = document.createElement('a');
+    a.href = stlUrl;
+    a.download = stlFilename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const clearSTL = () => {
+    if (stlUrl) {
+      URL.revokeObjectURL(stlUrl);
+      setStlUrl(null);
+      setStlFilename(null);
+    }
+  };
+return (
     <div className="flex flex-col md:flex-row h-[100dvh] w-full overflow-hidden bg-slate-950 text-slate-200">
       {isExporting && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm">
@@ -127,6 +144,7 @@ export default function App() {
         exportRadius={exportRadius}
         exportHeight={exportHeight}
         exportQuality={exportQuality}
+        stlUrl={stlUrl}
       />
       <SettingsPanel
         activeTab={activeTab}
@@ -156,7 +174,10 @@ export default function App() {
         setExportThickness={setExportThickness}
         exportQuality={exportQuality}
         setExportQuality={setExportQuality}
-        generateAndDownloadSTL={generateAndDownloadSTL}
+        generateSTL={generateSTL}
+        downloadSTL={downloadSTL}
+        clearSTL={clearSTL}
+        stlUrl={stlUrl}
       />
     </div>
   );
