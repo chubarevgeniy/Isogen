@@ -124,13 +124,26 @@ self.onmessage = (e) => {
     const ring = booleans.subtract(outerCyl, innerCyl);
     allGeometries.push(ring);
 
-    // 3. UNION AND SERIALIZE
-    const finalGeom = booleans.union(...allGeometries);
+    // 3. SERIALIZE DIRECTLY (avoid OOM from union)
+    // We pass all geometries to serialize, which will write them as multiple solids/shells in one STL.
+    const stlDataArray = serialize({ binary: true }, ...allGeometries);
 
-    const stlData = serialize({ binary: true }, finalGeom);
+    // The binary serializer returns an array of ArrayBuffers (header, count, data, data, ...)
+    // We need to combine them into a single ArrayBuffer for the blob.
+    let totalLength = 0;
+    for (const buf of stlDataArray) {
+      totalLength += buf.byteLength;
+    }
 
-    // Send back buffer, can transfer arraybuffer
-    self.postMessage({ type: 'SUCCESS', buffer: stlData[0] }, [stlData[0]]);
+    const finalBuffer = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const buf of stlDataArray) {
+      finalBuffer.set(new Uint8Array(buf), offset);
+      offset += buf.byteLength;
+    }
+
+    // Send back buffer, transfer it
+    self.postMessage({ type: 'SUCCESS', buffer: finalBuffer.buffer }, [finalBuffer.buffer]);
 
   } catch (err: any) {
     self.postMessage({ type: 'ERROR', error: err.toString() });
