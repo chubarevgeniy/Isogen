@@ -292,17 +292,18 @@ export function CanvasPreview({
       onPointerLeave={onPointerUp}
     >
       {previewMode === 'stl' && stlUrl && (
-        <div className="absolute inset-0 z-10">
-          <STLViewer url={stlUrl} />
-        </div>
+        <STLViewer
+          url={stlUrl}
+          className={`absolute inset-0 z-10 transition-all duration-500 ${isStlOutdated || isExporting ? 'opacity-40 saturate-50' : ''}`}
+        />
       )}
 
-      {previewMode === 'stl' && (isStlOutdated || !stlUrl) && (
+      {previewMode === 'stl' && !stlUrl && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
            <div className="text-center p-6 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl">
              <Box size={48} className="mx-auto mb-4 text-cyan-500 opacity-80" />
              <h3 className="text-xl font-medium text-slate-200 mb-2">
-                {isExporting ? "Генерация 3D модели..." : (stlUrl ? "Модель устарела" : "STL модель не сгенерирована")}
+                {isExporting ? "Генерация 3D модели..." : "STL модель не сгенерирована"}
              </h3>
              <p className="text-slate-400 mb-6 max-w-sm">
                 {isExporting ? "Это может занять несколько минут..." : "Настройки были изменены. Сгенерируйте новую модель для предпросмотра."}
@@ -321,15 +322,49 @@ export function CanvasPreview({
                ) : (
                  <Box size={18} />
                )}
-               {isExporting ? "Генерация..." : (stlUrl ? "Обновить STL" : "Сгенерировать STL")}
+               {isExporting ? "Генерация..." : "Сгенерировать STL"}
              </button>
            </div>
         </div>
       )}
 
-      {previewMode !== 'stl' && (
-        <canvas ref={canvasRef} className="block w-full h-full absolute inset-0 z-0" />
+      {previewMode === 'stl' && stlUrl && (isStlOutdated || isExporting) && (
+        <div className="absolute top-4 right-4 z-30">
+          <div className="flex items-center gap-4 p-3 bg-slate-900/90 backdrop-blur-md border border-amber-500/30 rounded-xl shadow-xl">
+            <div className="text-right">
+              <div className="text-sm font-medium text-amber-500">
+                {isExporting ? "Обновление модели..." : "Модель устарела"}
+              </div>
+              {!isExporting && (
+                <div className="text-xs text-slate-400">
+                  Настройки изменены
+                </div>
+              )}
+            </div>
+            <button
+               onClick={generateSTL}
+               disabled={isExporting}
+               className={`py-2 px-4 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                 isExporting
+                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                   : 'bg-amber-600 hover:bg-amber-500 active:scale-95 text-white shadow-lg shadow-amber-900/50'
+               }`}
+             >
+               {isExporting ? (
+                 <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin"></div>
+               ) : (
+                 <Box size={16} />
+               )}
+               {isExporting ? "Генерация..." : "Обновить STL"}
+            </button>
+          </div>
+        </div>
       )}
+
+      <canvas
+        ref={canvasRef}
+        className={`block w-full h-full absolute inset-0 z-0 ${previewMode === 'stl' ? 'opacity-0 pointer-events-none' : ''}`}
+      />
     </div>
   );
 }
