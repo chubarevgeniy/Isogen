@@ -47,3 +47,77 @@ export class ValueNoise3D {
     return total / maxValue;
   }
 }
+
+export class CellularNoise3D {
+  p: Uint8Array;
+  jitter: number;
+
+  constructor(seed = 123, jitter = 1.0) {
+    this.jitter = jitter;
+    this.p = new Uint8Array(512);
+    let s = seed;
+    for (let i = 0; i < 256; i++) {
+      s = (s * 16807) % 2147483647;
+      this.p[i] = s % 256;
+    }
+    for (let i = 0; i < 256; i++) {
+      this.p[i + 256] = this.p[i];
+    }
+  }
+
+  // PRNG based on grid coordinates
+  hash(x: number, y: number, z: number) {
+    const p = this.p;
+    return p[p[p[x & 255] + (y & 255)] + (z & 255)];
+  }
+
+  // Returns a pseudo-random offset in [-jitter/2, jitter/2]
+  getOffset(x: number, y: number, z: number, component: number) {
+    const h = this.hash(x + component * 11, y + component * 17, z + component * 23);
+    return (h / 255.0 - 0.5) * this.jitter;
+  }
+
+  val(x: number, y: number, z: number) {
+    const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+    const xf = x - xi, yf = y - yi, zf = z - zi;
+
+    let minDist = 999999;
+
+    for (let k = -1; k <= 1; k++) {
+      for (let j = -1; j <= 1; j++) {
+        for (let i = -1; i <= 1; i++) {
+          const cx = xi + i, cy = yi + j, cz = zi + k;
+          const ox = this.getOffset(cx, cy, cz, 0);
+          const oy = this.getOffset(cx, cy, cz, 1);
+          const oz = this.getOffset(cx, cy, cz, 2);
+
+          const dx = (i + ox) - xf;
+          const dy = (j + oy) - yf;
+          const dz = (k + oz) - zf;
+
+          const dist = dx * dx + dy * dy + dz * dz;
+          if (dist < minDist) {
+            minDist = dist;
+          }
+        }
+      }
+    }
+
+    // Return value scaled closer to [-1, 1] for visual similarity with Value noise
+    // Cellular minimum distance is typically [0, 1] before sqrt.
+    // For Worley noise visually pleasing effect, we can map dist to [-1, 1]
+    const d = Math.sqrt(minDist);
+    return d * 2 - 1;
+  }
+
+  get(x: number, y: number, z: number, octaves = 3, persistence = 0.5) {
+    let total = 0, frequency = 1, amplitude = 1, maxValue = 0;
+    for (let i = 0; i < octaves; i++) {
+      total += this.val(x * frequency, y * frequency, z * frequency) * amplitude;
+      maxValue += amplitude;
+      amplitude *= persistence;
+      frequency *= 2;
+    }
+    return total / maxValue;
+  }
+}

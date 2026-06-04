@@ -23,6 +23,11 @@ export default function App() {
   const [isStlOutdated, setIsStlOutdated] = useState(true);
 
   // Params matching the old logic
+  const [noiseType, setNoiseType] = useState<'value' | 'cellular'>('value');
+  const [cellularJitter, setCellularJitter] = useState(1.0);
+  const [outerShape, setOuterShape] = useState<'circle' | 'square'>('circle');
+  const [lineAngle, setLineAngle] = useState(45);
+
   const [linesCount, setLinesCount] = useState(40);
   const [amplitude, setAmplitude] = useState(10);
   const [frequency, setFrequency] = useState(2.0);
@@ -66,7 +71,7 @@ export default function App() {
 
   React.useEffect(() => {
     setIsStlOutdated(true);
-  }, [linesCount, amplitude, frequency, spacing, noiseOffset, seed, zStart, zLength, exportRadius, exportHeight, exportThickness, exportQuality]);
+  }, [linesCount, amplitude, frequency, spacing, noiseOffset, seed, zStart, zLength, exportRadius, exportHeight, exportThickness, exportQuality, noiseType, cellularJitter, outerShape, lineAngle]);
 
 
 
@@ -104,7 +109,8 @@ export default function App() {
     worker.postMessage({
       linesCount, amplitude, frequency, spacing, noiseOffset, seed, zRange,
       exportRadius, exportHeight, exportThickness, exportQuality,
-      dimensions: { w: 200, h: 200 }
+      dimensions: { w: 200, h: 200 },
+      noiseType, cellularJitter, outerShape, lineAngle
     });
   };
 
@@ -133,6 +139,10 @@ return (
         isStlOutdated={isStlOutdated}
         isExporting={isExporting}
         generateSTL={generateSTL}
+        noiseType={noiseType}
+        cellularJitter={cellularJitter}
+        outerShape={outerShape}
+        lineAngle={lineAngle}
         linesCount={linesCount}
         amplitude={amplitude}
         frequency={frequency}
@@ -161,6 +171,14 @@ return (
         isStlOutdated={isStlOutdated}
         isExporting={isExporting}
         generateSTL={generateSTL}
+        noiseType={noiseType}
+        setNoiseType={setNoiseType}
+        cellularJitter={cellularJitter}
+        setCellularJitter={setCellularJitter}
+        outerShape={outerShape}
+        setOuterShape={setOuterShape}
+        lineAngle={lineAngle}
+        setLineAngle={setLineAngle}
         linesCount={linesCount}
         setLinesCount={setLinesCount}
         amplitude={amplitude}
