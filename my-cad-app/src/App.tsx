@@ -36,6 +36,7 @@ export default function App() {
   const [seed, setSeed] = useState(Math.random() * 10000);
   const [zStart, setZStart] = useState(0);
   const [zLength, setZLength] = useState(0.2);
+  const [zMultiplier, setZMultiplier] = useState(1.0);
 
   const zRange: [number, number] = [zStart, zStart + zLength];
 
@@ -57,13 +58,6 @@ export default function App() {
   const [exportThickness, setExportThickness] = useState(1.5);
   const [exportQuality, setExportQuality] = useState(0.5);
 
-  const getLineDisplacement = (noiseGen: ValueNoise3D, lineIdx: number, t: number, z: number) => {
-    const yNoise = lineIdx * noiseOffset;
-    const lineSpreadOffset = (lineIdx - (linesCount - 1) / 2) * spacing;
-    const n = noiseGen.get(t * frequency, yNoise, z);
-    return lineSpreadOffset + n * amplitude;
-  };
-
   const [isExporting, setIsExporting] = useState(false);
 
   const [stlUrl, setStlUrl] = useState<string | null>(null);
@@ -71,7 +65,7 @@ export default function App() {
 
   React.useEffect(() => {
     setIsStlOutdated(true);
-  }, [linesCount, amplitude, frequency, spacing, noiseOffset, seed, zStart, zLength, exportRadius, exportHeight, exportThickness, exportQuality, noiseType, cellularJitter, outerShape, lineAngle]);
+  }, [linesCount, amplitude, frequency, spacing, noiseOffset, seed, zStart, zLength, zMultiplier, exportRadius, exportHeight, exportThickness, exportQuality, noiseType, cellularJitter, outerShape, lineAngle]);
 
 
 
@@ -107,7 +101,7 @@ export default function App() {
     };
 
     worker.postMessage({
-      linesCount, amplitude, frequency, spacing, noiseOffset, seed, zRange,
+      linesCount, amplitude, frequency, spacing, noiseOffset, seed, zRange, zMultiplier,
       exportRadius, exportHeight, exportThickness, exportQuality,
       dimensions: { w: 200, h: 200 },
       noiseType, cellularJitter, outerShape, lineAngle
@@ -156,6 +150,7 @@ return (
         setAnimDir={setAnimDir}
         setPreviewZ={setPreviewZ}
         zRange={zRange}
+        zMultiplier={zMultiplier}
         rotX={rotX}
         rotY={rotY}
         setRotX={setRotX}
@@ -195,6 +190,8 @@ return (
         setZStart={setZStart}
         zLength={zLength}
         setZLength={setZLength}
+        zMultiplier={zMultiplier}
+        setZMultiplier={setZMultiplier}
         previewZ={previewZ}
         isAnimating={isAnimating}
         setIsAnimating={setIsAnimating}
