@@ -23,12 +23,15 @@ export default function App() {
 
   // Params matching the old logic
   const [linesCount, setLinesCount] = useState(40);
-  const [amplitude, setAmplitude] = useState(150);
+  const [amplitude, setAmplitude] = useState(10);
   const [frequency, setFrequency] = useState(2.0);
-  const [spacing, setSpacing] = useState(10);
+  const [spacing, setSpacing] = useState(2);
   const [noiseOffset, setNoiseOffset] = useState(0.04);
   const [seed, setSeed] = useState(Math.random() * 10000);
-  const [zRange, setZRange] = useState<[number, number]>([0, 5.0]);
+  const [zStart, setZStart] = useState(0);
+  const [zLength, setZLength] = useState(0.2);
+
+  const zRange: [number, number] = [zStart, zStart + zLength];
 
   // Animation
   const [previewZ, setPreviewZ] = useState(0);
@@ -90,7 +93,7 @@ export default function App() {
     worker.postMessage({
       linesCount, amplitude, frequency, spacing, noiseOffset, seed, zRange,
       exportRadius, exportHeight, exportThickness, exportQuality,
-      dimensions: dimensionsRef.current
+      dimensions: { w: 200, h: 200 }
     });
   };
 
@@ -161,8 +164,10 @@ return (
         setNoiseOffset={setNoiseOffset}
         seed={seed}
         setSeed={setSeed}
-        zRange={zRange}
-        setZRange={setZRange}
+        zStart={zStart}
+        setZStart={setZStart}
+        zLength={zLength}
+        setZLength={setZLength}
         previewZ={previewZ}
         isAnimating={isAnimating}
         setIsAnimating={setIsAnimating}

@@ -16,8 +16,10 @@ interface SettingsPanelProps {
   setNoiseOffset: (val: number) => void;
   seed: number;
   setSeed: (val: number) => void;
-  zRange: [number, number];
-  setZRange: (val: [number, number]) => void;
+  zStart: number;
+  setZStart: (val: number) => void;
+  zLength: number;
+  setZLength: (val: number) => void;
   previewZ: number;
   isAnimating: boolean;
   setIsAnimating: (val: boolean) => void;
@@ -38,7 +40,7 @@ interface SettingsPanelProps {
 export function SettingsPanel({
   activeTab, setActiveTab, linesCount, setLinesCount, amplitude, setAmplitude,
   frequency, setFrequency, spacing, setSpacing, noiseOffset, setNoiseOffset,
-  seed, setSeed, zRange, setZRange, previewZ, isAnimating, setIsAnimating,
+  seed, setSeed, zStart, setZStart, zLength, setZLength, previewZ, isAnimating, setIsAnimating,
   exportRadius, setExportRadius, exportHeight, setExportHeight,
   exportThickness, setExportThickness, exportQuality, setExportQuality, generateSTL, downloadSTL, clearSTL, stlUrl
 }: SettingsPanelProps) {
@@ -66,45 +68,32 @@ export function SettingsPanel({
         <div>
         {activeTab === '2d' ? (
           <>
-            <div className="p-4 bg-slate-800 rounded-xl mb-6">
-               <div className="flex justify-between items-center mb-2">
-                 <div>
-                   <div className="text-cyan-400 font-medium">Диапазон шума (Z)</div>
-                   <div className="text-xs text-slate-500">Начало: {zRange[0].toFixed(1)} / Конец: {zRange[1].toFixed(1)}</div>
-                 </div>
+            <div className="p-4 bg-slate-800 rounded-xl mb-6 space-y-4">
+              <div className="flex justify-between items-center">
+                 <div className="text-cyan-400 font-medium">Диапазон шума (Z)</div>
                  <button
                    className="p-2 rounded-lg bg-slate-700/80 hover:bg-slate-600/80 transition-all"
                    onClick={() => setIsAnimating(!isAnimating)}
                  >
                    {isAnimating ? <Pause size={18} className="text-slate-200" /> : <Play size={18} className="text-slate-200" />}
                  </button>
-               </div>
+              </div>
 
-               {/* Custom Double Slider */}
-               <div className="double-slider-container mb-2 relative h-4">
-                   <div className="double-slider-track absolute w-full h-1 bg-slate-700 top-1/2 -translate-y-1/2 rounded-full"></div>
-                   <div
-                     className="double-slider-range absolute h-1 bg-cyan-500 top-1/2 -translate-y-1/2 rounded-full"
-                     style={{
-                       left: `${(zRange[0] / 10) * 100}%`,
-                       width: `${((zRange[1] - zRange[0]) / 10) * 100}%`
-                     }}
-                   ></div>
-                   <input
-                     type="range"
-                     min="0" max="10" step="0.1"
-                     value={zRange[0]}
-                     onChange={(e) => setZRange([Math.min(Number(e.target.value), zRange[1] - 0.1), zRange[1]])}
-                     className="absolute w-full top-1/2 -translate-y-1/2 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400 [&::-webkit-slider-thumb]:appearance-none"
-                   />
-                   <input
-                     type="range"
-                     min="0" max="10" step="0.1"
-                     value={zRange[1]}
-                     onChange={(e) => setZRange([zRange[0], Math.max(Number(e.target.value), zRange[0] + 0.1)])}
-                     className="absolute w-full top-1/2 -translate-y-1/2 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400 [&::-webkit-slider-thumb]:appearance-none"
-                   />
-               </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400">Начало шума (Z)</span>
+                  <span className="font-mono text-cyan-400">{zStart.toFixed(1)}</span>
+                </div>
+                <input type="range" min="0" max="10" step="0.1" value={zStart} onChange={(e) => setZStart(Number(e.target.value))} className="w-full accent-cyan-500" />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400">Длина шума (Z)</span>
+                  <span className="font-mono text-cyan-400">{zLength.toFixed(2)}</span>
+                </div>
+                <input type="range" min="0.01" max="0.5" step="0.01" value={zLength} onChange={(e) => setZLength(Number(e.target.value))} className="w-full accent-cyan-500" />
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -120,7 +109,7 @@ export function SettingsPanel({
                 <span className="text-slate-400">Амплитуда изгиба</span>
                 <span className="font-mono text-cyan-400">{amplitude}</span>
               </div>
-              <input type="range" min="10" max="300" value={amplitude} onChange={(e) => setAmplitude(Number(e.target.value))} className="w-full accent-cyan-500" />
+              <input type="range" min="1" max="100" value={amplitude} onChange={(e) => setAmplitude(Number(e.target.value))} className="w-full accent-cyan-500" />
             </div>
 
             <div className="space-y-4">
@@ -136,7 +125,7 @@ export function SettingsPanel({
                 <span className="text-slate-400">Интервал (разлет)</span>
                 <span className="font-mono text-cyan-400">{spacing}</span>
               </div>
-              <input type="range" min="1" max="50" step="1" value={spacing} onChange={(e) => setSpacing(Number(e.target.value))} className="w-full accent-cyan-500" />
+              <input type="range" min="0.5" max="15" step="0.5" value={spacing} onChange={(e) => setSpacing(Number(e.target.value))} className="w-full accent-cyan-500" />
             </div>
 
             <div className="space-y-4">
@@ -144,7 +133,7 @@ export function SettingsPanel({
                 <span className="text-slate-400">Различие изгибов</span>
                 <span className="font-mono text-cyan-400">{noiseOffset.toFixed(3)}</span>
               </div>
-              <input type="range" min="0" max="0.5" step="0.001" value={noiseOffset} onChange={(e) => setNoiseOffset(Number(e.target.value))} className="w-full accent-cyan-500" />
+              <input type="range" min="0" max="0.1" step="0.001" value={noiseOffset} onChange={(e) => setNoiseOffset(Number(e.target.value))} className="w-full accent-cyan-500" />
             </div>
           </>
         ) : (
@@ -178,7 +167,7 @@ export function SettingsPanel({
                   <span className="text-slate-400">Радиус кольца (мм)</span>
                   <span className="font-mono text-cyan-400">{exportRadius}</span>
                 </div>
-                <input type="range" min="5" max="30" value={exportRadius} onChange={(e) => setExportRadius(Number(e.target.value))} className="w-full accent-cyan-500" />
+                <input type="range" min="5" max="150" value={exportRadius} onChange={(e) => setExportRadius(Number(e.target.value))} className="w-full accent-cyan-500" />
               </div>
 
               <div className="space-y-4">

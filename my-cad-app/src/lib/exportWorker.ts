@@ -46,21 +46,20 @@ self.onmessage = (e) => {
 
         for (let jt = 0; jt <= tSteps; jt++) {
           const t = jt / tSteps;
-          const px2d = (w * t) + normX * getLineDisplacement(i, t, currentZNoise) - w / 2;
-          const py2d = (h * (1 - t)) + normY * getLineDisplacement(i, t, currentZNoise) - h / 2;
+          const px2d = (w * t) + normX * getLineDisplacement(i, t, currentZNoise);
+          const py2d = (h * (1 - t)) + normY * getLineDisplacement(i, t, currentZNoise);
 
           let nTx = normX, nTy = normY;
           if (jt < tSteps) {
-            const pnx = (w * (jt + 1) / tSteps) + normX * getLineDisplacement(i, (jt + 1) / tSteps, currentZNoise) - w / 2;
-            const pny = (h * (1 - (jt + 1) / tSteps)) + normY * getLineDisplacement(i, (jt + 1) / tSteps, currentZNoise) - h / 2;
+            const pnx = (w * (jt + 1) / tSteps) + normX * getLineDisplacement(i, (jt + 1) / tSteps, currentZNoise);
+            const pny = (h * (1 - (jt + 1) / tSteps)) + normY * getLineDisplacement(i, (jt + 1) / tSteps, currentZNoise);
             const dx = pnx - px2d; const dy = pny - py2d;
             const len = Math.sqrt(dx * dx + dy * dy) || 1;
             nTx = -dy / len; nTy = dx / len;
           }
 
-          const scaleTo3D = (exportRadius * 2) / (Math.min(w, h) * 0.9);
-          const cx = px2d * scaleTo3D;
-          const cy = -py2d * scaleTo3D;
+          const cx = px2d - w / 2;
+          const cy = -(py2d - h / 2);
 
           const thick = exportThickness / 2;
           rowL.push([cx - nTx * thick, cy + nTy * thick, realZ]);

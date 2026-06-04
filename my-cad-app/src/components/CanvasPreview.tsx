@@ -133,10 +133,14 @@ export function CanvasPreview({
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.clip();
 
+        const logicalW = 200;
+        const logicalH = 200;
+        const scale = (Math.min(w, h) * 0.9) / logicalW;
+
         const steps = 150;
-        const diagLength = Math.sqrt(w * w + h * h);
-        const normalX = h / diagLength;
-        const normalY = w / diagLength;
+        const logicalDiag = Math.sqrt(logicalW * logicalW + logicalH * logicalH);
+        const normalX = logicalH / logicalDiag;
+        const normalY = logicalW / logicalDiag;
 
         ctx.globalCompositeOperation = 'screen';
 
@@ -148,12 +152,11 @@ export function CanvasPreview({
 
           for (let j = 0; j <= steps; j++) {
             const t = j / steps;
-            const baseX = w * t;
-            const baseY = h * (1 - t);
-            const displacement = getLineDisplacement(noiseGen, i, t, previewZ);
+            const logicalPx = logicalW * t + normalX * getLineDisplacement(noiseGen, i, t, previewZ);
+            const logicalPy = logicalH * (1 - t) + normalY * getLineDisplacement(noiseGen, i, t, previewZ);
 
-            const px = baseX + normalX * displacement;
-            const py = baseY + normalY * displacement;
+            const px = cx + (logicalPx - logicalW / 2) * scale;
+            const py = cy + (logicalPy - logicalH / 2) * scale;
 
             if (j === 0) ctx.moveTo(px, py);
             else ctx.lineTo(px, py);
@@ -222,9 +225,11 @@ export function CanvasPreview({
         ctx.lineWidth = 1.5;
         ctx.globalCompositeOperation = 'screen';
 
-        const diagLen = Math.sqrt(w*w + h*h);
-        const normX = h / diagLen;
-        const normY = w / diagLen;
+        const logicalW = 200;
+        const logicalH = 200;
+        const diagLen = Math.sqrt(logicalW*logicalW + logicalH*logicalH);
+        const normX = logicalH / diagLen;
+        const normY = logicalW / diagLen;
 
         for (let i = 0; i < linesCount; i++) {
           const hue = 260 + (i / linesCount) * 60;
@@ -242,12 +247,11 @@ export function CanvasPreview({
               const t = jt / tStepsPreview;
               const disp = getLineDisplacement(noiseGen, i, t, noiseZ);
 
-              const px2d = (w*t) + normX*disp - w/2;
-              const py2d = (h*(1-t)) + normY*disp - h/2;
+              const px2d = (logicalW*t) + normX*disp;
+              const py2d = (logicalH*(1-t)) + normY*disp;
 
-              const scaleTo3D = (exportRadius * 2) / (Math.min(w, h) * 0.9);
-              let cx3d = px2d * scaleTo3D;
-              let cy3d = py2d * scaleTo3D;
+              let cx3d = px2d - logicalW / 2;
+              let cy3d = py2d - logicalH / 2;
 
               const dist = Math.sqrt(cx3d*cx3d + cy3d*cy3d);
               if (dist <= exportRadius) {
