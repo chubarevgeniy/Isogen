@@ -1,16 +1,16 @@
-import { ValueNoise3D, CellularNoise3D } from './noise';
+import { ValueNoise3D, PerlinNoise3D } from './noise';
 import { geometries, booleans, primitives } from '@jscad/modeling';
 import { serialize } from '@jscad/stl-serializer';
 
 self.onmessage = (e) => {
   const {
-    linesCount, amplitude, frequency, spacing, noiseOffset, seed, zRange, zMultiplier,
+    linesCount, amplitude, frequencyX, spacing, noiseOffsetY, noiseOffsetZ, seed, zRange, zMultiplier,
     exportRadius, exportHeight, exportThickness, exportQuality,
-    dimensions, noiseType, cellularJitter, outerShape, lineAngle
+    dimensions, noiseType, outerShape, lineAngle
   } = e.data;
 
   try {
-    const noiseGen = noiseType === 'cellular' ? new CellularNoise3D(seed, cellularJitter) : new ValueNoise3D(seed);
+    const noiseGen = noiseType === 'perlin' ? new PerlinNoise3D(seed) : new ValueNoise3D(seed);
     const { w, h } = dimensions;
 
     const tSteps = 400;
@@ -27,10 +27,10 @@ self.onmessage = (e) => {
     const diagLen = Math.sqrt(w * w + h * h);
 
     const getLineDisplacement = (lineIdx: number, t: number, z: number) => {
-      const yNoise = lineIdx * noiseOffset;
+      const yNoise = lineIdx * noiseOffsetY;
       const lineSpreadOffset = (lineIdx - (linesCount - 1) / 2) * spacing;
-      const base_n = noiseGen.get(t * frequency, yNoise, zRange[0]);
-      const current_n = noiseGen.get(t * frequency, yNoise, z);
+      const base_n = noiseGen.get(t * frequencyX, yNoise, zRange[0] * noiseOffsetZ);
+      const current_n = noiseGen.get(t * frequencyX, yNoise, z * noiseOffsetZ);
       return lineSpreadOffset + base_n * amplitude + (current_n - base_n) * amplitude * zMultiplier;
     };
 
