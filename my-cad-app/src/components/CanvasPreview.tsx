@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { ValueNoise3D, CellularNoise3D } from '../lib/noise';
+import { ValueNoise3D, PerlinNoise3D } from '../lib/noise';
 import { STLViewer } from './STLViewer';
 import { Box } from 'lucide-react';
 
@@ -8,15 +8,15 @@ interface CanvasPreviewProps {
   isStlOutdated: boolean;
   isExporting: boolean;
   generateSTL: () => void;
-  noiseType: 'value' | 'cellular';
-  cellularJitter: number;
-  outerShape: 'circle' | 'square';
+  noiseType: 'value' | 'perlin';
+    outerShape: 'circle' | 'square';
   lineAngle: number;
   linesCount: number;
   amplitude: number;
-  frequency: number;
+  frequencyX: number;
   spacing: number;
-  noiseOffset: number;
+  noiseOffsetY: number;
+  noiseOffsetZ: number;
   seed: number;
   previewZ: number;
   isAnimating: boolean;
@@ -38,8 +38,8 @@ interface CanvasPreviewProps {
 
 export function CanvasPreview({
   previewMode, isStlOutdated, isExporting, generateSTL,
-  noiseType, cellularJitter, outerShape, lineAngle,
-  linesCount, amplitude, frequency, spacing, noiseOffset, seed,
+  noiseType, outerShape, lineAngle,
+  linesCount, amplitude, frequencyX, spacing, noiseOffsetY, noiseOffsetZ, seed,
   previewZ, isAnimating, setIsAnimating, animDir, setAnimDir, setPreviewZ, zRange, zMultiplier,
   rotX, rotY, setRotX, setRotY, exportRadius, exportHeight, exportQuality, stlUrl
 }: CanvasPreviewProps) {
@@ -92,18 +92,18 @@ export function CanvasPreview({
     isDragging.current = false;
   };
 
-  const getLineDisplacement = (noiseGen: ValueNoise3D | CellularNoise3D, lineIdx: number, t: number, z: number) => {
-    const yNoise = lineIdx * noiseOffset;
+  const getLineDisplacement = (noiseGen: ValueNoise3D | PerlinNoise3D, lineIdx: number, t: number, z: number) => {
+    const yNoise = lineIdx * noiseOffsetY;
     const lineSpreadOffset = (lineIdx - (linesCount - 1) / 2) * spacing;
-    const base_n = noiseGen.get(t * frequency, yNoise, zRange[0]);
-    const current_n = noiseGen.get(t * frequency, yNoise, z);
+    const base_n = noiseGen.get(t * frequencyX, yNoise, zRange[0] * noiseOffsetZ);
+    const current_n = noiseGen.get(t * frequencyX, yNoise, z * noiseOffsetZ);
     return lineSpreadOffset + base_n * amplitude + (current_n - base_n) * amplitude * zMultiplier;
   };
 
   useEffect(() => {
     if (previewMode === 'stl') return;
 
-    const noiseGen = noiseType === 'cellular' ? new CellularNoise3D(seed, cellularJitter) : new ValueNoise3D(seed);
+    const noiseGen = noiseType === 'perlin' ? new PerlinNoise3D(seed) : new ValueNoise3D(seed);
 
     const render = () => {
       const { w, h } = dimensionsRef.current;
@@ -353,7 +353,7 @@ export function CanvasPreview({
     return () => {
       if (reqRef.current !== null) cancelAnimationFrame(reqRef.current);
     };
-  }, [linesCount, amplitude, frequency, spacing, noiseOffset, seed, zRange, zMultiplier, previewZ, isAnimating, animDir, previewMode, rotX, rotY, exportRadius, exportHeight, exportQuality]);
+  }, [linesCount, amplitude, frequencyX, spacing, noiseOffsetY, noiseOffsetZ, seed, zRange, zMultiplier, previewZ, isAnimating, animDir, previewMode, rotX, rotY, exportRadius, exportHeight, exportQuality]);
 
   return (
     <div

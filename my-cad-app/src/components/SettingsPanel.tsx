@@ -7,11 +7,9 @@ interface SettingsPanelProps {
   isStlOutdated: boolean;
   isExporting: boolean;
   generateSTL: () => void;
-  noiseType: 'value' | 'cellular';
-  setNoiseType: (val: 'value' | 'cellular') => void;
-  cellularJitter: number;
-  setCellularJitter: (val: number) => void;
-  outerShape: 'circle' | 'square';
+  noiseType: 'value' | 'perlin';
+  setNoiseType: (val: 'value' | 'perlin') => void;
+      outerShape: 'circle' | 'square';
   setOuterShape: (val: 'circle' | 'square') => void;
   lineAngle: number;
   setLineAngle: (val: number) => void;
@@ -19,12 +17,14 @@ interface SettingsPanelProps {
   setLinesCount: (val: number) => void;
   amplitude: number;
   setAmplitude: (val: number) => void;
-  frequency: number;
-  setFrequency: (val: number) => void;
+  frequencyX: number;
+  setFrequencyX: (val: number) => void;
   spacing: number;
   setSpacing: (val: number) => void;
-  noiseOffset: number;
-  setNoiseOffset: (val: number) => void;
+  noiseOffsetY: number;
+  noiseOffsetZ: number;
+  setNoiseOffsetY: (val: number) => void;
+  setNoiseOffsetZ: (val: number) => void;
   seed: number;
   setSeed: (val: number) => void;
   zStart: number;
@@ -52,10 +52,9 @@ interface SettingsPanelProps {
 export function SettingsPanel({
   previewMode, setPreviewMode,
   isStlOutdated, isExporting, generateSTL,
-  noiseType, setNoiseType, cellularJitter, setCellularJitter,
-  outerShape, setOuterShape, lineAngle, setLineAngle,
+  noiseType, setNoiseType, outerShape, setOuterShape, lineAngle, setLineAngle,
   linesCount, setLinesCount, amplitude, setAmplitude,
-  frequency, setFrequency, spacing, setSpacing, noiseOffset, setNoiseOffset,
+  frequencyX, setFrequencyX, spacing, setSpacing, noiseOffsetY, setNoiseOffsetY, noiseOffsetZ, setNoiseOffsetZ,
   seed, setSeed, zStart, setZStart, zLength, setZLength, zMultiplier, setZMultiplier, previewZ, isAnimating, setIsAnimating,
   exportRadius, setExportRadius, exportHeight, setExportHeight,
   exportThickness, setExportThickness, exportQuality, setExportQuality, downloadSTL, clearSTL, stlUrl
@@ -145,22 +144,14 @@ export function SettingsPanel({
                  Гладкий (Value)
                </button>
                <button
-                 onClick={() => setNoiseType('cellular')}
-                 className={`flex-1 py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-all text-xs font-medium ${noiseType === 'cellular' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-300'}`}
+                 onClick={() => setNoiseType('perlin')}
+                 className={`flex-1 py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-all text-xs font-medium ${noiseType === 'perlin' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-300'}`}
                >
-                 Ячеистый (Cellular)
+                 Перлин (Perlin)
                </button>
              </div>
 
-             {noiseType === 'cellular' && (
-               <div className="space-y-2">
-                 <div className="flex justify-between items-center text-sm">
-                   <span className="text-slate-400">Хаотичность (Jitter)</span>
-                   <span className="font-mono text-cyan-400">{cellularJitter.toFixed(2)}</span>
-                 </div>
-                 <input type="range" min="0" max="1.5" step="0.05" value={cellularJitter} onChange={(e) => setCellularJitter(Number(e.target.value))} className="w-full accent-cyan-500" />
-               </div>
-             )}
+
 
             <div className="space-y-2">
               <div className="flex justify-between items-center text-sm">
@@ -188,10 +179,10 @@ export function SettingsPanel({
 
             <div className="space-y-2">
               <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-400">Частота волн</span>
-                <span className="font-mono text-cyan-400">{frequency.toFixed(1)}</span>
+                <span className="text-slate-400">Частота волн (X)</span>
+                <span className="font-mono text-cyan-400">{frequencyX.toFixed(1)}</span>
               </div>
-              <input type="range" min="0.1" max="15" step="0.1" value={frequency} onChange={(e) => setFrequency(Number(e.target.value))} className="w-full accent-cyan-500" />
+              <input type="range" min="0.1" max="15" step="0.1" value={frequencyX} onChange={(e) => setFrequencyX(Number(e.target.value))} className="w-full accent-cyan-500" />
             </div>
 
             <div className="space-y-2">
@@ -202,12 +193,20 @@ export function SettingsPanel({
               <input type="range" min="0.5" max="15" step="0.5" value={spacing} onChange={(e) => setSpacing(Number(e.target.value))} className="w-full accent-cyan-500" />
             </div>
 
+
             <div className="space-y-2">
               <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-400">Различие изгибов</span>
-                <span className="font-mono text-cyan-400">{noiseOffset.toFixed(3)}</span>
+                <span className="text-slate-400">Различие изгибов (Z)</span>
+                <span className="font-mono text-cyan-400">{noiseOffsetZ.toFixed(3)}</span>
               </div>
-              <input type="range" min="0" max="0.1" step="0.001" value={noiseOffset} onChange={(e) => setNoiseOffset(Number(e.target.value))} className="w-full accent-cyan-500" />
+              <input type="range" min="0" max="5.0" step="0.01" value={noiseOffsetZ} onChange={(e) => setNoiseOffsetZ(Number(e.target.value))} className="w-full accent-cyan-500" />
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-400">Различие изгибов (Y)</span>
+                <span className="font-mono text-cyan-400">{noiseOffsetY.toFixed(3)}</span>
+              </div>
+              <input type="range" min="0" max="0.1" step="0.001" value={noiseOffsetY} onChange={(e) => setNoiseOffsetY(Number(e.target.value))} className="w-full accent-cyan-500" />
             </div>
 
             <div className="p-4 bg-slate-800 rounded-xl mt-4 space-y-4">

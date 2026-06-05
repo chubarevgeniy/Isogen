@@ -4,12 +4,22 @@ export class ValueNoise3D {
   constructor(seed = 123) {
     this.p = new Uint8Array(512);
     let s = seed;
+    const permutation = new Uint8Array(256);
     for (let i = 0; i < 256; i++) {
-      s = (s * 16807) % 2147483647;
-      this.p[i] = s % 256;
+      permutation[i] = i;
     }
+    // Shuffle
+    for (let i = 255; i > 0; i--) {
+      s = (s * 16807) % 2147483647;
+      const j = s % (i + 1);
+      const temp = permutation[i];
+      permutation[i] = permutation[j];
+      permutation[j] = temp;
+    }
+
     for (let i = 0; i < 256; i++) {
-      this.p[i + 256] = this.p[i];
+      this.p[i] = permutation[i];
+      this.p[i + 256] = permutation[i];
     }
   }
 
@@ -48,66 +58,69 @@ export class ValueNoise3D {
   }
 }
 
-export class CellularNoise3D {
+export class PerlinNoise3D {
   p: Uint8Array;
-  jitter: number;
-
-  constructor(seed = 123, jitter = 1.0) {
-    this.jitter = jitter;
+  constructor(seed = 123) {
     this.p = new Uint8Array(512);
     let s = seed;
+    const permutation = new Uint8Array(256);
     for (let i = 0; i < 256; i++) {
+      permutation[i] = i;
+    }
+    // Shuffle
+    for (let i = 255; i > 0; i--) {
       s = (s * 16807) % 2147483647;
-      this.p[i] = s % 256;
+      const j = s % (i + 1);
+      const temp = permutation[i];
+      permutation[i] = permutation[j];
+      permutation[j] = temp;
     }
+
     for (let i = 0; i < 256; i++) {
-      this.p[i + 256] = this.p[i];
+      this.p[i] = permutation[i];
+      this.p[i + 256] = permutation[i];
     }
   }
 
-  // PRNG based on grid coordinates
-  hash(x: number, y: number, z: number) {
-    const p = this.p;
-    return p[p[p[x & 255] + (y & 255)] + (z & 255)];
+  fade(t: number) {
+    return t * t * t * (t * (t * 6 - 15) + 10);
   }
 
-  // Returns a pseudo-random offset in [-jitter/2, jitter/2]
-  getOffset(x: number, y: number, z: number, component: number) {
-    const h = this.hash(x + component * 11, y + component * 17, z + component * 23);
-    return (h / 255.0 - 0.5) * this.jitter;
+  lerp(t: number, a: number, b: number) {
+    return a + t * (b - a);
+  }
+
+  grad(hash: number, x: number, y: number, z: number) {
+    const h = hash & 15;
+    const u = h < 8 ? x : y;
+    const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+    return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
   }
 
   val(x: number, y: number, z: number) {
-    const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
-    const xf = x - xi, yf = y - yi, zf = z - zi;
+    const X = Math.floor(x) & 255;
+    const Y = Math.floor(y) & 255;
+    const Z = Math.floor(z) & 255;
 
-    let minDist = 999999;
+    x -= Math.floor(x);
+    y -= Math.floor(y);
+    z -= Math.floor(z);
 
-    for (let k = -1; k <= 1; k++) {
-      for (let j = -1; j <= 1; j++) {
-        for (let i = -1; i <= 1; i++) {
-          const cx = xi + i, cy = yi + j, cz = zi + k;
-          const ox = this.getOffset(cx, cy, cz, 0);
-          const oy = this.getOffset(cx, cy, cz, 1);
-          const oz = this.getOffset(cx, cy, cz, 2);
+    const u = this.fade(x);
+    const v = this.fade(y);
+    const w = this.fade(z);
 
-          const dx = (i + ox) - xf;
-          const dy = (j + oy) - yf;
-          const dz = (k + oz) - zf;
+    const A = this.p[X] + Y, AA = this.p[A] + Z, AB = this.p[A + 1] + Z;
+    const B = this.p[X + 1] + Y, BA = this.p[B] + Z, BB = this.p[B + 1] + Z;
 
-          const dist = dx * dx + dy * dy + dz * dz;
-          if (dist < minDist) {
-            minDist = dist;
-          }
-        }
-      }
-    }
-
-    // Return value scaled closer to [-1, 1] for visual similarity with Value noise
-    // Cellular minimum distance is typically [0, 1] before sqrt.
-    // For Worley noise visually pleasing effect, we can map dist to [-1, 1]
-    const d = Math.sqrt(minDist);
-    return d * 2 - 1;
+    return this.lerp(w, this.lerp(v, this.lerp(u, this.grad(this.p[AA], x, y, z),
+                                     this.grad(this.p[BA], x - 1, y, z)),
+                             this.lerp(u, this.grad(this.p[AB], x, y - 1, z),
+                                     this.grad(this.p[BB], x - 1, y - 1, z))),
+                     this.lerp(v, this.lerp(u, this.grad(this.p[AA + 1], x, y, z - 1),
+                                     this.grad(this.p[BA + 1], x - 1, y, z - 1)),
+                             this.lerp(u, this.grad(this.p[AB + 1], x, y - 1, z - 1),
+                                     this.grad(this.p[BB + 1], x - 1, y - 1, z - 1))));
   }
 
   get(x: number, y: number, z: number, octaves = 3, persistence = 0.5) {

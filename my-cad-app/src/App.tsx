@@ -23,16 +23,16 @@ export default function App() {
   const [isStlOutdated, setIsStlOutdated] = useState(true);
 
   // Params matching the old logic
-  const [noiseType, setNoiseType] = useState<'value' | 'cellular'>('value');
-  const [cellularJitter, setCellularJitter] = useState(1.0);
-  const [outerShape, setOuterShape] = useState<'circle' | 'square'>('circle');
+  const [noiseType, setNoiseType] = useState<'value' | 'perlin'>('value');
+    const [outerShape, setOuterShape] = useState<'circle' | 'square'>('circle');
   const [lineAngle, setLineAngle] = useState(45);
 
   const [linesCount, setLinesCount] = useState(40);
   const [amplitude, setAmplitude] = useState(10);
-  const [frequency, setFrequency] = useState(2.0);
+  const [frequencyX, setFrequencyX] = useState(2.0);
   const [spacing, setSpacing] = useState(2);
-  const [noiseOffset, setNoiseOffset] = useState(0.04);
+  const [noiseOffsetY, setNoiseOffsetY] = useState(0.04);
+  const [noiseOffsetZ, setNoiseOffsetZ] = useState(1.0);
   const [seed, setSeed] = useState(Math.random() * 10000);
   const [zStart, setZStart] = useState(0);
   const [zLength, setZLength] = useState(0.2);
@@ -65,7 +65,7 @@ export default function App() {
 
   React.useEffect(() => {
     setIsStlOutdated(true);
-  }, [linesCount, amplitude, frequency, spacing, noiseOffset, seed, zStart, zLength, zMultiplier, exportRadius, exportHeight, exportThickness, exportQuality, noiseType, cellularJitter, outerShape, lineAngle]);
+  }, [linesCount, amplitude, frequencyX, spacing, noiseOffsetY, noiseOffsetZ, seed, zStart, zLength, zMultiplier, exportRadius, exportHeight, exportThickness, exportQuality, noiseType, outerShape, lineAngle]);
 
 
 
@@ -101,10 +101,10 @@ export default function App() {
     };
 
     worker.postMessage({
-      linesCount, amplitude, frequency, spacing, noiseOffset, seed, zRange, zMultiplier,
+      linesCount, amplitude, frequencyX, spacing, noiseOffsetY, noiseOffsetZ, seed, zRange, zMultiplier,
       exportRadius, exportHeight, exportThickness, exportQuality,
       dimensions: { w: 200, h: 200 },
-      noiseType, cellularJitter, outerShape, lineAngle
+      noiseType, outerShape, lineAngle
     });
   };
 
@@ -134,14 +134,14 @@ return (
         isExporting={isExporting}
         generateSTL={generateSTL}
         noiseType={noiseType}
-        cellularJitter={cellularJitter}
         outerShape={outerShape}
         lineAngle={lineAngle}
         linesCount={linesCount}
         amplitude={amplitude}
-        frequency={frequency}
+        frequencyX={frequencyX}
         spacing={spacing}
-        noiseOffset={noiseOffset}
+        noiseOffsetY={noiseOffsetY}
+        noiseOffsetZ={noiseOffsetZ}
         seed={seed}
         previewZ={previewZ}
         isAnimating={isAnimating}
@@ -168,8 +168,6 @@ return (
         generateSTL={generateSTL}
         noiseType={noiseType}
         setNoiseType={setNoiseType}
-        cellularJitter={cellularJitter}
-        setCellularJitter={setCellularJitter}
         outerShape={outerShape}
         setOuterShape={setOuterShape}
         lineAngle={lineAngle}
@@ -178,12 +176,14 @@ return (
         setLinesCount={setLinesCount}
         amplitude={amplitude}
         setAmplitude={setAmplitude}
-        frequency={frequency}
-        setFrequency={setFrequency}
+        frequencyX={frequencyX}
+        setFrequencyX={setFrequencyX}
         spacing={spacing}
         setSpacing={setSpacing}
-        noiseOffset={noiseOffset}
-        setNoiseOffset={setNoiseOffset}
+        noiseOffsetY={noiseOffsetY}
+        setNoiseOffsetY={setNoiseOffsetY}
+        noiseOffsetZ={noiseOffsetZ}
+        setNoiseOffsetZ={setNoiseOffsetZ}
         seed={seed}
         setSeed={setSeed}
         zStart={zStart}
