@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { ValueNoise3D, PerlinNoise3D } from '../lib/noise';
+import { PerlinNoise3D } from '../lib/noise';
 import { STLViewer } from './STLViewer';
 import { Box } from 'lucide-react';
 
@@ -8,7 +8,7 @@ interface CanvasPreviewProps {
   isStlOutdated: boolean;
   isExporting: boolean;
   generateSTL: () => void;
-  noiseType: 'value' | 'perlin';
+  noiseType: 'smooth' | 'perlin';
     outerShape: 'circle' | 'square';
   lineAngle: number;
   linesCount: number;
@@ -92,18 +92,31 @@ export function CanvasPreview({
     isDragging.current = false;
   };
 
-  const getLineDisplacement = (noiseGen: ValueNoise3D | PerlinNoise3D, lineIdx: number, t: number, z: number) => {
+  const getLineDisplacement = (noiseGen: PerlinNoise3D, lineIdx: number, t: number, z: number) => {
     const yNoise = lineIdx * noiseOffsetY;
     const lineSpreadOffset = (lineIdx - (linesCount - 1) / 2) * spacing;
-    const base_n = noiseGen.get(t * frequencyX, yNoise, zRange[0] * noiseOffsetZ);
-    const current_n = noiseGen.get(t * frequencyX, yNoise, z * noiseOffsetZ);
-    return lineSpreadOffset + base_n * amplitude + (current_n - base_n) * amplitude * zMultiplier;
+
+    if (noiseType === 'smooth') {
+      // In smooth mode, first layer is perfectly parallel (y=0 for base)
+      const base_n = noiseGen.get(t * frequencyX, 0, zRange[0] * noiseOffsetZ);
+      // But walls grow unpredictably per line (using yNoise)
+      const start_n = noiseGen.get(t * frequencyX, yNoise, zRange[0] * noiseOffsetZ);
+      const current_n = noiseGen.get(t * frequencyX, yNoise, z * noiseOffsetZ);
+      return lineSpreadOffset + base_n * amplitude + (current_n - start_n) * amplitude * zMultiplier;
+    } else {
+      // Perlin mode: standard behavior
+      const base_n = noiseGen.get(t * frequencyX, yNoise, zRange[0] * noiseOffsetZ);
+      const current_n = noiseGen.get(t * frequencyX, yNoise, z * noiseOffsetZ);
+      return lineSpreadOffset + base_n * amplitude + (current_n - base_n) * amplitude * zMultiplier;
+    }
   };
 
   useEffect(() => {
     if (previewMode === 'stl') return;
 
-    const noiseGen = noiseType === 'perlin' ? new PerlinNoise3D(seed) : new ValueNoise3D(seed);
+    // We always use PerlinNoise3D now, as "smooth" mode relies on Perlin's smoothness
+    // without straight line artifacts, but alters the coordinate sampling logic.
+    const noiseGen = new PerlinNoise3D(seed);
 
     const render = () => {
       const { w, h } = dimensionsRef.current;

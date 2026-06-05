@@ -23,7 +23,7 @@ export default function App() {
   const [isStlOutdated, setIsStlOutdated] = useState(true);
 
   // Params matching the old logic
-  const [noiseType, setNoiseType] = useState<'value' | 'perlin'>('value');
+  const [noiseType, setNoiseType] = useState<'smooth' | 'perlin'>('smooth');
     const [outerShape, setOuterShape] = useState<'circle' | 'square'>('circle');
   const [lineAngle, setLineAngle] = useState(45);
 

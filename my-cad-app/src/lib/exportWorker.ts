@@ -1,4 +1,4 @@
-import { ValueNoise3D, PerlinNoise3D } from './noise';
+import { PerlinNoise3D } from './noise';
 import { geometries, booleans, primitives } from '@jscad/modeling';
 import { serialize } from '@jscad/stl-serializer';
 
@@ -10,7 +10,7 @@ self.onmessage = (e) => {
   } = e.data;
 
   try {
-    const noiseGen = noiseType === 'perlin' ? new PerlinNoise3D(seed) : new ValueNoise3D(seed);
+    const noiseGen = new PerlinNoise3D(seed);
     const { w, h } = dimensions;
 
     const tSteps = 400;
@@ -29,9 +29,17 @@ self.onmessage = (e) => {
     const getLineDisplacement = (lineIdx: number, t: number, z: number) => {
       const yNoise = lineIdx * noiseOffsetY;
       const lineSpreadOffset = (lineIdx - (linesCount - 1) / 2) * spacing;
-      const base_n = noiseGen.get(t * frequencyX, yNoise, zRange[0] * noiseOffsetZ);
-      const current_n = noiseGen.get(t * frequencyX, yNoise, z * noiseOffsetZ);
-      return lineSpreadOffset + base_n * amplitude + (current_n - base_n) * amplitude * zMultiplier;
+
+      if (noiseType === 'smooth') {
+        const base_n = noiseGen.get(t * frequencyX, 0, zRange[0] * noiseOffsetZ);
+        const start_n = noiseGen.get(t * frequencyX, yNoise, zRange[0] * noiseOffsetZ);
+        const current_n = noiseGen.get(t * frequencyX, yNoise, z * noiseOffsetZ);
+        return lineSpreadOffset + base_n * amplitude + (current_n - start_n) * amplitude * zMultiplier;
+      } else {
+        const base_n = noiseGen.get(t * frequencyX, yNoise, zRange[0] * noiseOffsetZ);
+        const current_n = noiseGen.get(t * frequencyX, yNoise, z * noiseOffsetZ);
+        return lineSpreadOffset + base_n * amplitude + (current_n - base_n) * amplitude * zMultiplier;
+      }
     };
 
     const allGeometries = [];
