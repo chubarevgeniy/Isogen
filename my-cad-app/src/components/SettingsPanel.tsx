@@ -7,8 +7,8 @@ interface SettingsPanelProps {
   isStlOutdated: boolean;
   isExporting: boolean;
   generateSTL: () => void;
-  noiseType: 'value' | 'perlin';
-  setNoiseType: (val: 'value' | 'perlin') => void;
+  noiseType: 'smooth' | 'perlin';
+  setNoiseType: (val: 'smooth' | 'perlin') => void;
       outerShape: 'circle' | 'square';
   setOuterShape: (val: 'circle' | 'square') => void;
   lineAngle: number;
@@ -138,16 +138,16 @@ export function SettingsPanel({
 
              <div className="flex gap-2 p-1 bg-slate-900 rounded-xl border border-slate-800 mb-4">
                <button
-                 onClick={() => setNoiseType('value')}
-                 className={`flex-1 py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-all text-xs font-medium ${noiseType === 'value' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-300'}`}
+                 onClick={() => setNoiseType('smooth')}
+                 className={`flex-1 py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-all text-xs font-medium ${noiseType === 'smooth' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-300'}`}
                >
-                 Гладкий (Value)
+                 Гладкий (Smooth)
                </button>
                <button
                  onClick={() => setNoiseType('perlin')}
                  className={`flex-1 py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-all text-xs font-medium ${noiseType === 'perlin' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-300'}`}
                >
-                 Перлин (Perlin)
+                 Шумный (Perlin)
                </button>
              </div>
 
